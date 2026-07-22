@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String
+  role      String   // "admin" | "verificator" | "user"
+  googleId  String?  @unique
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Inspection {
+  id                  Int            @id @default(autoincrement())
+  shipperName         String
+  commodityType       String
+  notes               String?
+  stackingDescription String?
+  moistureDescription String?
+  createdBy           String
+  createdAt           DateTime       @default(now())
+  status              String         @default("pending")
+  adminNotes          String?
+  location            Json?
+  photos              Json?
+  updatedAt           DateTime       @updatedAt
+  containerNumber     String?
+  notifications       Notification[]
+}
+
+model Notification {
+  id           Int        @id @default(autoincrement())
+  userId       String
+  type         String     // inspection_submitted, inspection_approved, correction_requested
+  title        String
+  message      String
+  read         Boolean    @default(false)
+  inspectionId Int?
+  inspection   Inspection? @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@index([userId])
+  @@index([read])
+}

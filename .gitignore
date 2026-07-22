@@ -1,0 +1,21 @@
+node_modules
+# Keep environment variables out of version control
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build output
+.next
+/lib/generated/prisma
+dist/
+build/
+.DS_Store
+*.db
+
+# Exclude all markdown documentation files except README.md
+Docs/
+*.md
+!README.md
+
