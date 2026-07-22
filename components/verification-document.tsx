@@ -213,164 +213,183 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               </h1>
             </div>
 
-            <table className="w-full text-xs border-collapse border-2 border-black table-fixed">
-              <thead>
-                <tr className="bg-gray-300 text-black border-b-2 border-black">
-                  <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[36%]" style={{ width: "36%" }}>
-                    Photos
-                  </th>
-                  <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[34%]" style={{ width: "34%" }}>
-                    Information
-                  </th>
-                  <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[30%]" style={{ width: "30%" }}>
-                    Location
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {inspectionsWithAddress.flatMap((inspection, insIdx) => {
-                  const lat = inspection.location?.latitude
-                  const lng = inspection.location?.longitude
-                  const mapUrl = lat && lng
-                    ? `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=400x300&markers=${lat},${lng},red-pushpin`
-                    : null
+            {inspectionsWithAddress.map((inspection, insIdx) => {
+              const lat = inspection.location?.latitude
+              const lng = inspection.location?.longitude
+              const mapUrl = lat && lng
+                ? `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=400x300&markers=${lat},${lng},red-pushpin`
+                : null
 
-                  const photoRows = [
-                    {
-                      type: "containerNumber",
-                      label: "Foto Container",
-                      src: inspection.photos?.containerNumber,
-                      info: `Nomor kontainer beserta komoditas (pintu kiri dibuka agar terlihat komoditasnya)\n\nShipper: ${inspection.shipperName}\nNo. Container: ${inspection.containerNumber || "-"}\nKomoditi: ${inspection.commodityType}`,
-                    },
-                    {
-                      type: "commodity",
-                      label: "Foto Komoditi",
-                      src: inspection.photos?.commodity,
-                      info: `Foto komoditas (${inspection.commodityType}) dalam kontainer\n\nShipper: ${inspection.shipperName}\nNo. Container: ${inspection.containerNumber || "-"}`,
-                    },
-                    {
-                      type: "shipper",
-                      label: "Foto Packing Tag",
-                      src: inspection.photos?.shipper,
-                      info: `Foto packing tag & bukti pengirim (${inspection.shipperName})`,
-                    },
-                    {
-                      type: "ispm",
-                      label: "Foto Stempel ISPM",
-                      src: inspection.photos?.ispm,
-                      info: "Stempel ISPM 15 pada kemasan kayu / palet perlakuan",
-                    },
-                    {
-                      type: "stacking",
-                      label: "Foto Stacking",
-                      src: inspection.photos?.stacking,
-                      info: inspection.stackingDescription || "Kondisi penataan dan penyusunan barang (stacking) dalam kontainer",
-                    },
-                    {
-                      type: "slicing",
-                      label: "Foto Slicing / Monitoring",
-                      src: inspection.photos?.slicing,
-                      info: inspection.moistureDescription || "Peralatan monitoring memperlihatkan alat, kipas dan selang monitoring",
-                    },
-                  ].filter((item) => Boolean(item.src))
+              const photoRows = [
+                {
+                  type: "containerNumber",
+                  label: "Foto Container",
+                  src: inspection.photos?.containerNumber,
+                  info: `Nomor kontainer beserta komoditas (pintu kiri dibuka agar terlihat komoditasnya)\n\nShipper: ${inspection.shipperName}\nNo. Container: ${inspection.containerNumber || "-"}\nKomoditi: ${inspection.commodityType}`,
+                },
+                {
+                  type: "commodity",
+                  label: "Foto Komoditi",
+                  src: inspection.photos?.commodity,
+                  info: `Foto komoditas (${inspection.commodityType}) dalam kontainer\n\nShipper: ${inspection.shipperName}\nNo. Container: ${inspection.containerNumber || "-"}`,
+                },
+                {
+                  type: "shipper",
+                  label: "Foto Packing Tag",
+                  src: inspection.photos?.shipper,
+                  info: `Foto packing tag & bukti pengirim (${inspection.shipperName})`,
+                },
+                {
+                  type: "ispm",
+                  label: "Foto Stempel ISPM",
+                  src: inspection.photos?.ispm,
+                  info: "Stempel ISPM 15 pada kemasan kayu / palet perlakuan",
+                },
+                {
+                  type: "stacking",
+                  label: "Foto Stacking",
+                  src: inspection.photos?.stacking,
+                  info: inspection.stackingDescription || "Kondisi penataan dan penyusunan barang (stacking) dalam kontainer",
+                },
+                {
+                  type: "slicing",
+                  label: "Foto Slicing / Monitoring",
+                  src: inspection.photos?.slicing,
+                  info: inspection.moistureDescription || "Peralatan monitoring memperlihatkan alat, kipas dan selang monitoring",
+                },
+              ].filter((item) => Boolean(item.src))
 
-                  // If no photos present, render single row with info
-                  if (photoRows.length === 0) {
-                    return [(
-                      <tr key={`no-photo-${insIdx}`} className="border-b-2 border-black page-break-inside-avoid">
-                        <td className="border-2 border-black p-4 text-center align-middle text-gray-400 italic">
-                          Tidak Ada Bukti Foto
-                        </td>
-                        <td className="border-2 border-black p-3 align-top">
-                          <p className="font-bold text-sm text-black">{inspection.shipperName}</p>
-                          <p className="text-xs text-gray-700">No. Container: {inspection.containerNumber || "-"}</p>
-                          <p className="text-xs text-gray-700">Komoditi: {inspection.commodityType}</p>
-                        </td>
-                        <td className="border-2 border-black p-3 align-top text-center">
-                          {lat && lng ? (
-                            <div>
-                              <p className="font-bold text-xs">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
-                              <p className="text-xs text-gray-700">{inspection.location?.address?.city || ""}</p>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 italic">Lokasi Tidak Tersedia</span>
-                          )}
-                        </td>
+              return (
+                <div
+                  key={inspection.id || insIdx}
+                  className="mb-8 border-4 border-black rounded-sm overflow-hidden page-break-after-always shadow-md"
+                >
+                  {/* DISTINCT CONTAINER HEADER BANNER */}
+                  <div className="bg-gray-900 text-white px-4 py-2.5 flex items-center justify-between border-b-4 border-black">
+                    <div>
+                      <span className="font-extrabold text-sm text-yellow-400 font-mono tracking-wide uppercase">
+                        KONTAINER #{insIdx + 1}: {inspection.containerNumber || "TANPA NOMOR"}
+                      </span>
+                      <span className="ml-3 text-xs text-gray-200">
+                        • Shipper: <strong className="text-white">{inspection.shipperName}</strong> • Komoditi: <strong className="text-white capitalize">{inspection.commodityType}</strong>
+                      </span>
+                    </div>
+                    <span className="text-xs bg-gray-800 text-gray-200 px-2.5 py-1 rounded border border-gray-700 font-medium">
+                      Petugas: {inspection.createdBy}
+                    </span>
+                  </div>
+
+                  <table className="w-full text-xs border-collapse table-fixed">
+                    <thead>
+                      <tr className="bg-gray-300 text-black border-b-2 border-black">
+                        <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[36%]" style={{ width: "36%" }}>
+                          Photos
+                        </th>
+                        <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[34%]" style={{ width: "34%" }}>
+                          Information
+                        </th>
+                        <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[30%]" style={{ width: "30%" }}>
+                          Location
+                        </th>
                       </tr>
-                    )]
-                  }
+                    </thead>
+                    <tbody>
+                      {photoRows.length === 0 ? (
+                        <tr className="border-b-2 border-black">
+                          <td className="border-2 border-black p-4 text-center align-middle text-gray-400 italic">
+                            Tidak Ada Bukti Foto
+                          </td>
+                          <td className="border-2 border-black p-3 align-top">
+                            <p className="font-bold text-sm text-black">{inspection.shipperName}</p>
+                            <p className="text-xs text-gray-700">No. Container: {inspection.containerNumber || "-"}</p>
+                            <p className="text-xs text-gray-700">Komoditi: {inspection.commodityType}</p>
+                          </td>
+                          <td className="border-2 border-black p-3 align-top text-center">
+                            {lat && lng ? (
+                              <div>
+                                <p className="font-bold text-xs">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
+                                <p className="text-xs text-gray-700">{inspection.location?.address?.city || ""}</p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">Lokasi Tidak Tersedia</span>
+                            )}
+                          </td>
+                        </tr>
+                      ) : (
+                        photoRows.map((row, rIdx) => (
+                          <tr key={`${insIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid">
+                            {/* PHOTOS COLUMN (LEFT) */}
+                            <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={row.src!}
+                                alt={row.label}
+                                className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black"
+                              />
+                              <span className="block text-[10px] font-bold text-black uppercase mt-1">
+                                {row.label}
+                              </span>
+                            </td>
 
-                  return photoRows.map((row, rIdx) => (
-                    <tr key={`${insIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid">
-                      {/* PHOTOS COLUMN (LEFT) */}
-                      <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={row.src!}
-                          alt={row.label}
-                          className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black"
-                        />
-                        <span className="block text-[10px] font-bold text-black uppercase mt-1">
-                          {row.label}
-                        </span>
-                      </td>
+                            {/* INFORMATION COLUMN (MIDDLE) */}
+                            <td className="border-2 border-black p-3 align-top">
+                              <p className="font-bold text-xs sm:text-sm text-black leading-snug whitespace-pre-wrap">
+                                {row.info}
+                              </p>
+                              {inspection.notes && (
+                                <div className="mt-3 pt-2 border-t border-gray-300 text-xs text-gray-800">
+                                  <span className="font-bold block text-[10px] uppercase text-gray-600">Catatan Khusus:</span>
+                                  <p className="whitespace-pre-wrap">{inspection.notes}</p>
+                                </div>
+                              )}
+                              <div className="mt-3 pt-2 border-t border-gray-300 text-[11px]">
+                                <span className="font-bold block text-[10px] uppercase text-gray-600">Hasil Verifikasi:</span>
+                                {inspection.status === "approved" ? (
+                                  <span className="font-bold text-green-700">✓ Disetujui (Terverifikasi)</span>
+                                ) : inspection.status === "needs_correction" ? (
+                                  <span className="font-bold text-red-700">⚠️ Minta Perbaikan</span>
+                                ) : (
+                                  <span className="font-bold text-yellow-700">🕒 Menunggu Tinjauan</span>
+                                )}
+                              </div>
+                            </td>
 
-                      {/* INFORMATION COLUMN (MIDDLE) */}
-                      <td className="border-2 border-black p-3 align-top">
-                        <p className="font-bold text-xs sm:text-sm text-black leading-snug whitespace-pre-wrap">
-                          {row.info}
-                        </p>
-                        {inspection.notes && (
-                          <div className="mt-3 pt-2 border-t border-gray-300 text-xs text-gray-800">
-                            <span className="font-bold block text-[10px] uppercase text-gray-600">Catatan Khusus:</span>
-                            <p className="whitespace-pre-wrap">{inspection.notes}</p>
-                          </div>
-                        )}
-                        <div className="mt-3 pt-2 border-t border-gray-300 text-[11px]">
-                          <span className="font-bold block text-[10px] uppercase text-gray-600">Hasil Verifikasi:</span>
-                          {inspection.status === "approved" ? (
-                            <span className="font-bold text-green-700">✓ Disetujui (Terverifikasi)</span>
-                          ) : inspection.status === "needs_correction" ? (
-                            <span className="font-bold text-red-700">⚠️ Minta Perbaikan</span>
-                          ) : (
-                            <span className="font-bold text-yellow-700">🕒 Menunggu Tinjauan</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
-                      <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
-                        {mapUrl ? (
-                          <div className="space-y-2">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={mapUrl}
-                              alt="Location Map"
-                              className="w-full h-44 sm:h-52 object-cover border-2 border-black block rounded-xs bg-gray-200"
-                            />
-                            <div className="text-left text-[10px] font-sans bg-white p-2 border border-black rounded-xs space-y-0.5">
-                              <p className="font-bold text-black leading-tight">
-                                📍 {inspection.location?.address?.street || inspection.location?.address?.name || "Lokasi Inspeksi"}
-                              </p>
-                              <p className="text-gray-700">
-                                {inspection.location?.address?.city || ""}, {inspection.location?.address?.province || ""}
-                              </p>
-                              <p className="font-mono text-blue-700 font-semibold">
-                                {lat?.toFixed(6)}, {lng?.toFixed(6)}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="py-12 text-center text-gray-400 italic text-xs">
-                            Lokasi Tidak Tersedia
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                })}
-              </tbody>
-            </table>
+                            {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
+                            <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
+                              {mapUrl ? (
+                                <div className="space-y-2">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={mapUrl}
+                                    alt="Location Map"
+                                    className="w-full h-44 sm:h-52 object-cover border-2 border-black block rounded-xs bg-gray-200"
+                                  />
+                                  <div className="text-left text-[10px] font-sans bg-white p-2 border border-black rounded-xs space-y-0.5">
+                                    <p className="font-bold text-black leading-tight">
+                                      📍 {inspection.location?.address?.street || inspection.location?.address?.name || "Lokasi Inspeksi"}
+                                    </p>
+                                    <p className="text-gray-700">
+                                      {inspection.location?.address?.city || ""}, {inspection.location?.address?.province || ""}
+                                    </p>
+                                    <p className="font-mono text-blue-700 font-semibold">
+                                      {lat?.toFixed(6)}, {lng?.toFixed(6)}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="py-12 text-center text-gray-400 italic text-xs">
+                                  Lokasi Tidak Tersedia
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
 
             <div className="text-xs text-gray-600 border-t-2 border-black pt-2 text-center font-medium">
               <p>Dokumen Resmi Hasil Verifikasi Kontainer · Generated: {new Date().toLocaleString("id-ID")}</p>
