@@ -224,15 +224,6 @@ function LoginFormContent() {
             </button>
           </p>
         </div>
-
-        {/* Demo credentials - only show on login mode */}
-        {mode === "login" && (
-          <div className="mt-6 pt-6 border-t space-y-2 text-xs text-muted-foreground">
-            <p className="font-medium">Kredensial Demo:</p>
-            <p>Admin: admin@example.com / password123</p>
-            <p>Verificator: officer@example.com / password123</p>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

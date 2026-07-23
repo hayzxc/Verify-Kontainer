@@ -21,6 +21,10 @@ export async function GET(req: Request) {
         const clientSecret = process.env.GOOGLE_CLIENT_SECRET
         const redirectUri = `${baseUrl}/api/auth/google/callback`
 
+        if (code === "mock_google_code" && process.env.NODE_ENV === "production") {
+            return NextResponse.redirect(`${baseUrl}/login?error=Invalid authentication code`)
+        }
+
         let googleProfile = {
             sub: "mock_google_id_123",
             email: "user.google@example.com",

@@ -33,24 +33,7 @@ export function UserManagement() {
         setUsers([])
       }
     } else {
-      const defaultUsers: UserData[] = [
-        {
-          id: "1",
-          name: "Admin User",
-          email: "admin@example.com",
-          password: "password123",
-          role: "admin",
-        },
-        {
-          id: "2",
-          name: "Officer One",
-          email: "officer@example.com",
-          password: "password123",
-          role: "verificator",
-        },
-      ]
-      setUsers(defaultUsers)
-      localStorage.setItem("users", JSON.stringify(defaultUsers))
+      setUsers([])
     }
   }, [])
 

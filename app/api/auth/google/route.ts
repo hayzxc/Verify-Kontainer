@@ -8,6 +8,9 @@ export async function GET(req: Request) {
     const redirectUri = `${baseUrl}/api/auth/google/callback`
 
     if (!clientId) {
+        if (process.env.NODE_ENV === "production") {
+            return NextResponse.redirect(`${baseUrl}/login?error=Google OAuth is not configured in production`)
+        }
         // Mock mode for local testing without configured OAuth keys
         const mockCallbackUrl = `${redirectUri}?code=mock_google_code`
         return NextResponse.redirect(mockCallbackUrl)
