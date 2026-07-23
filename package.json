@@ -6,6 +6,7 @@
     "build": "next build --webpack",
     "dev": "next dev --webpack",
     "lint": "eslint .",
+    "postinstall": "prisma generate",
     "start": "next start"
   },
   "dependencies": {
