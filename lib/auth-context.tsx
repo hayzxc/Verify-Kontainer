@@ -59,8 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (!res.ok) {
-        const error = await res.text()
-        throw new Error(error || "Login failed")
+        const errorText = await res.text()
+        let errorMessage = "Login failed"
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson.error?.message || errorJson.message || errorText
+        } catch {
+          errorMessage = errorText || "Login failed"
+        }
+        throw new Error(errorMessage)
       }
 
       const userData = await res.json()
@@ -82,8 +89,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (!res.ok) {
-        const error = await res.text()
-        throw new Error(error || "Signup failed")
+        const errorText = await res.text()
+        let errorMessage = "Signup failed"
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson.error?.message || errorJson.message || errorText
+        } catch {
+          errorMessage = errorText || "Signup failed"
+        }
+        throw new Error(errorMessage)
       }
 
       const userData = await res.json()
