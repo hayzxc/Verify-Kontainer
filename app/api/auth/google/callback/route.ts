@@ -7,7 +7,9 @@ export async function GET(req: Request) {
     const code = searchParams.get("code")
     const error = searchParams.get("error")
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host")
+    const proto = req.headers.get("x-forwarded-proto") || "https"
+    const baseUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
 
     if (error || !code) {
         console.error("[GOOGLE_AUTH_CALLBACK] OAuth error or code missing:", error)
