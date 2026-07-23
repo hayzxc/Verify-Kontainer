@@ -36,6 +36,12 @@ model Inspection {
   updatedAt           DateTime       @updatedAt
   containerNumber     String?
   notifications       Notification[]
+
+  @@index([status])
+  @@index([createdBy])
+  @@index([createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([containerNumber])
 }
 
 model Notification {
@@ -51,4 +57,6 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+  @@index([userId, read])
+  @@index([userId, createdAt(sort: Desc)])
 }

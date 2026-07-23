@@ -11,24 +11,25 @@ export async function GET() {
 
         const userId = session.id as string
 
-        const notifications = await db.notification.findMany({
-            where: { userId },
-            orderBy: { createdAt: "desc" },
-            take: 50,
-            include: {
-                inspection: {
-                    select: {
-                        id: true,
-                        shipperName: true,
-                        status: true,
+        const [notifications, unreadCount] = await db.$transaction([
+            db.notification.findMany({
+                where: { userId },
+                orderBy: { createdAt: "desc" },
+                take: 50,
+                include: {
+                    inspection: {
+                        select: {
+                            id: true,
+                            shipperName: true,
+                            status: true,
+                        }
                     }
                 }
-            }
-        })
-
-        const unreadCount = await db.notification.count({
-            where: { userId, read: false }
-        })
+            }),
+            db.notification.count({
+                where: { userId, read: false }
+            })
+        ])
 
         return NextResponse.json({
             notifications,

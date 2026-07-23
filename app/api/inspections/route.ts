@@ -73,31 +73,30 @@ export async function GET(req: Request) {
             }
         }
 
-        // Get total count for metadata (with filters)
-        const total = await db.inspection.count({ where })
-
-        const inspections = await db.inspection.findMany({
-            where,
-            orderBy: {
-                createdAt: "desc",
-            },
-            skip,
-            take: validLimit,
-            select: {
-                id: true,
-                shipperName: true,
-                commodityType: true,
-                containerNumber: true,
-                status: true,
-                createdAt: true,
-                location: true,
-                adminNotes: true,
-                createdBy: true,
-                photos: false,
-                notes: true,
-                // Exclude large photos json
-            }
-        })
+        // Execute count and findMany in parallel via a single database transaction
+        const [total, inspections] = await db.$transaction([
+            db.inspection.count({ where }),
+            db.inspection.findMany({
+                where,
+                orderBy: {
+                    createdAt: "desc",
+                },
+                skip,
+                take: validLimit,
+                select: {
+                    id: true,
+                    shipperName: true,
+                    commodityType: true,
+                    containerNumber: true,
+                    status: true,
+                    createdAt: true,
+                    location: true,
+                    adminNotes: true,
+                    createdBy: true,
+                    notes: true,
+                }
+            })
+        ])
 
         return NextResponse.json({
             data: inspections,
