@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { X, Camera, Upload, CheckCircle2 } from "lucide-react"
+import { X, Camera, CheckCircle2 } from "lucide-react"
 import { compressImageBase64, getBase64ByteSize, formatFileSize } from "@/lib/image-compression"
 
 interface PhotoUploadProps {
@@ -17,7 +17,6 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
   const [preview, setPreview] = useState<string | null>(photo)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isCamera, setIsCamera] = useState(false)
   const [isCompressing, setIsCompressing] = useState(false)
 
@@ -36,7 +35,7 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
       }, 100)
     } catch (err) {
       console.error("Error accessing camera:", err)
-      alert("Tidak dapat mengakses kamera. Silakan pilih opsi unggah berkas foto.")
+      alert("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan pada peramban Anda.")
     }
   }
 
@@ -58,24 +57,6 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setIsCompressing(true)
-    const reader = new FileReader()
-    reader.onload = async (event) => {
-      const rawData = event.target?.result as string
-      if (rawData) {
-        const compressedData = await compressImageBase64(rawData, 1280, 0.75)
-        setPreview(compressedData)
-        onCapture(photoType, compressedData)
-      }
-      setIsCompressing(false)
-    }
-    reader.readAsDataURL(file)
-  }
-
   const stopCamera = () => {
     if (videoRef.current?.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
@@ -87,9 +68,6 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
   const removePhoto = () => {
     setPreview(null)
     onCapture(photoType, null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
   }
 
   const photoWeight = preview ? formatFileSize(getBase64ByteSize(preview)) : null
@@ -141,35 +119,17 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
         </div>
       ) : (
         <div className="space-y-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/*"
-            onChange={handleFileUpload}
-            className="hidden"
-            id={`file-${photoType}`}
-          />
-          <div className="border-2 border-dashed border-border rounded-lg p-3 sm:p-4 text-center bg-muted/20">
-            <Camera className="w-6 h-6 sm:w-8 sm:h-8 mx-auto text-muted-foreground mb-1" />
-            <p className="text-xs text-muted-foreground">Kamera / Unggah Foto Bukti</p>
+          <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-6 text-center bg-muted/20">
+            <Camera className="w-6 h-6 sm:w-8 sm:h-8 mx-auto text-muted-foreground mb-1.5" />
+            <p className="text-xs sm:text-sm text-muted-foreground">Ambil foto bukti langsung via kamera</p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" onClick={startCamera} variant="default" className="text-xs h-9">
-              <Camera className="w-3.5 h-3.5 mr-1" />
-              Kamera
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="text-xs h-9"
-            >
-              <Upload className="w-3.5 h-3.5 mr-1" />
-              Unggah
-            </Button>
-          </div>
+          <Button type="button" onClick={startCamera} variant="default" className="w-full text-xs sm:text-sm h-10">
+            <Camera className="w-4 h-4 mr-1.5" />
+            Buka Kamera
+          </Button>
         </div>
       )}
     </Card>
   )
 }
+
