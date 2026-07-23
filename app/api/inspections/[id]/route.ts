@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { verifySession } from "@/lib/auth"
 import { notifyUser, notifyAdmins, getUserIdByName } from "@/lib/notification-helpers"
+import { apiError } from "@/lib/api-response"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -9,7 +10,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const id = parseInt(idString)
@@ -18,13 +19,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         })
 
         if (!inspection) {
-            return new NextResponse("Not Found", { status: 404 })
+            return apiError("Inspection not found", 404)
         }
 
         return NextResponse.json(inspection)
     } catch (error) {
         console.error("[INSPECTION_GET]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
 
@@ -34,7 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const id = parseInt(idString)
@@ -46,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         })
 
         if (!currentInspection) {
-            return new NextResponse("Not Found", { status: 404 })
+            return apiError("Inspection not found", 404)
         }
 
         const isAdmin = session.role === "admin"
@@ -54,11 +55,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (!isAdmin) {
             // Non-admin (User / Verificator) can ONLY update their own inspection if status is 'needs_correction'
             if (currentInspection.createdBy !== session.name) {
-                return new NextResponse("Forbidden: Anda tidak memiliki akses ke inspeksi ini", { status: 403 })
+                return apiError("Forbidden: Anda tidak memiliki akses ke inspeksi ini", 403)
             }
 
             if (currentInspection.status !== "needs_correction") {
-                return new NextResponse("Inspeksi hanya dapat diperbarui jika berstatus Perlu Perbaikan", { status: 403 })
+                return apiError("Inspeksi hanya dapat diperbarui jika berstatus Perlu Perbaikan", 403)
             }
 
             // Update inspection data and reset status back to 'pending' for admin re-verification
@@ -130,7 +131,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json(inspection)
     } catch (error) {
         console.error("[INSPECTION_UPDATE]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
 
@@ -140,12 +141,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         // Only admins can delete inspections
         if (session.role !== "admin") {
-            return new NextResponse("Forbidden", { status: 403 })
+            return apiError("Forbidden", 403)
         }
 
         const id = parseInt(idString)
@@ -156,7 +157,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         return new NextResponse(null, { status: 204 })
     } catch (error) {
         console.error("[INSPECTION_DELETE]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
-

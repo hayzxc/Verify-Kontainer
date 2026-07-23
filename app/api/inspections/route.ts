@@ -4,12 +4,14 @@ import { db } from "@/lib/db"
 import { verifySession } from "@/lib/auth"
 import { InspectionSchema, PaginationSchema } from "@/lib/validations"
 import { notifyAdmins } from "@/lib/notification-helpers"
+import { apiError, apiSuccess } from "@/lib/api-response"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 export async function GET(req: Request) {
     try {
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const { searchParams } = new URL(req.url)
@@ -27,7 +29,7 @@ export async function GET(req: Request) {
         // Validate pagination params
         const paginationResult = PaginationSchema.safeParse({ page, limit })
         if (!paginationResult.success) {
-            return new NextResponse("Invalid pagination parameters", { status: 400 })
+            return apiError("Invalid pagination parameters", 400)
         }
 
         const { page: validPage, limit: validLimit } = paginationResult.data
@@ -94,8 +96,8 @@ export async function GET(req: Request) {
                     adminNotes: true,
                     createdBy: true,
                     notes: true,
-                }
-            })
+                },
+            }),
         ])
 
         return NextResponse.json({
@@ -104,20 +106,24 @@ export async function GET(req: Request) {
                 total,
                 page: validPage,
                 limit: validLimit,
-                totalPages: Math.ceil(total / validLimit)
-            }
+                totalPages: Math.ceil(total / validLimit),
+            },
         })
     } catch (error) {
         console.error("[INSPECTIONS_GET]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
 
 export async function POST(req: Request) {
     try {
+        // Rate limiting check
+        const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.submission, "inspection-post")
+        if (rateLimitResponse) return rateLimitResponse
+
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const body = await req.json()
@@ -125,7 +131,7 @@ export async function POST(req: Request) {
         // Zod Validation
         const result = InspectionSchema.safeParse(body)
         if (!result.success) {
-            return new NextResponse(result.error.errors[0].message, { status: 400 })
+            return apiError(result.error.errors[0].message, 400)
         }
 
         const {
@@ -153,7 +159,7 @@ export async function POST(req: Request) {
                 location: location || {},
                 photos: {
                     ...photos,
-                }
+                },
             },
         })
 
@@ -165,10 +171,9 @@ export async function POST(req: Request) {
             inspection.id
         )
 
-        return NextResponse.json(inspection)
+        return apiSuccess(inspection, undefined, 201)
     } catch (error) {
         console.error("[INSPECTIONS_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
-

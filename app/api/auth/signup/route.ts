@@ -3,16 +3,22 @@ import { db } from "@/lib/db"
 import bcrypt from "bcryptjs"
 import { verifySession } from "@/lib/auth"
 import { SignupSchema } from "@/lib/validations"
+import { apiError } from "@/lib/api-response"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 export async function POST(req: Request) {
     try {
+        // Rate limiting check
+        const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.auth, "auth-signup")
+        if (rateLimitResponse) return rateLimitResponse
+
         // Only admins can create new users
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
         if (session.role !== "admin") {
-            return new NextResponse("Forbidden", { status: 403 })
+            return apiError("Forbidden", 403)
         }
 
         const body = await req.json()
@@ -21,7 +27,7 @@ export async function POST(req: Request) {
         const result = SignupSchema.safeParse(body)
 
         if (!result.success) {
-            return new NextResponse(result.error.errors[0].message, { status: 400 })
+            return apiError(result.error.errors[0].message, 400)
         }
 
         const { email, password, name, role } = result.data
@@ -32,7 +38,7 @@ export async function POST(req: Request) {
                 where: { role: "admin" },
             })
             if (existingAdmin) {
-                return new NextResponse("Only one admin account is allowed in the system", { status: 400 })
+                return apiError("Only one admin account is allowed in the system", 400)
             }
         }
 
@@ -41,7 +47,7 @@ export async function POST(req: Request) {
         })
 
         if (existingUser) {
-            return new NextResponse("Email already registered", { status: 409 })
+            return apiError("Email already registered", 409)
         }
 
         const hashedPassword = await bcrypt.hash(password, 12)
@@ -55,6 +61,6 @@ export async function POST(req: Request) {
         return NextResponse.json(userWithoutPassword, { status: 201 })
     } catch (error) {
         console.error("[SIGNUP_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }

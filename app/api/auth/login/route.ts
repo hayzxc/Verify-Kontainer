@@ -2,14 +2,20 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import bcrypt from "bcryptjs"
 import { signSession, SESSION_COOKIE_OPTIONS } from "@/lib/auth"
+import { apiError } from "@/lib/api-response"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 export async function POST(req: Request) {
     try {
+        // Rate limiting check
+        const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.auth, "auth-login")
+        if (rateLimitResponse) return rateLimitResponse
+
         const body = await req.json()
         const { email, password } = body
 
         if (!email || !password) {
-            return new NextResponse("Missing credentials", { status: 400 })
+            return apiError("Missing credentials", 400)
         }
 
         const user = await db.user.findUnique({
@@ -19,13 +25,13 @@ export async function POST(req: Request) {
         })
 
         if (!user || !user.password) {
-            return new NextResponse("Invalid credentials", { status: 401 })
+            return apiError("Invalid credentials", 401)
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password)
 
         if (!isPasswordValid) {
-            return new NextResponse("Invalid credentials", { status: 401 })
+            return apiError("Invalid credentials", 401)
         }
 
         // Return user info without password
@@ -34,7 +40,7 @@ export async function POST(req: Request) {
             id: user.id,
             role: user.role,
             email: user.email,
-            name: user.name
+            name: user.name,
         })
 
         const { password: _, ...userWithoutPassword } = user
@@ -44,6 +50,6 @@ export async function POST(req: Request) {
         return res
     } catch (error) {
         console.error("[LOGIN_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }

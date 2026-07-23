@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { verifySession } from "@/lib/auth"
 import { notifyAdmins } from "@/lib/notification-helpers"
+import { apiError, apiSuccess } from "@/lib/api-response"
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 import { z } from "zod"
 
 const BulkInspectionSchema = z.object({
@@ -18,16 +20,20 @@ const BulkInspectionSchema = z.object({
 
 export async function POST(req: Request) {
     try {
+        // Rate limiting check
+        const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.submission, "inspection-bulk-post")
+        if (rateLimitResponse) return rateLimitResponse
+
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const body = await req.json()
 
         const result = BulkInspectionSchema.safeParse(body)
         if (!result.success) {
-            return new NextResponse(result.error.errors[0].message, { status: 400 })
+            return apiError(result.error.errors[0].message, 400)
         }
 
         const {
@@ -61,6 +67,14 @@ export async function POST(req: Request) {
                             containerNumber: null,
                         },
                     },
+                    select: {
+                        id: true,
+                        containerNumber: true,
+                        status: true,
+                        shipperName: true,
+                        commodityType: true,
+                        createdAt: true,
+                    },
                 })
             )
         )
@@ -76,9 +90,9 @@ export async function POST(req: Request) {
             )
         }
 
-        return NextResponse.json({ count: inspections.length, inspections })
+        return apiSuccess({ count: inspections.length, inspections }, undefined, 201)
     } catch (error) {
         console.error("[INSPECTIONS_BULK_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }

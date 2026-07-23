@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { verifySession } from "@/lib/auth"
+import { apiError } from "@/lib/api-response"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -8,7 +9,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const id = parseInt(idString)
@@ -20,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         })
 
         if (!notification) {
-            return new NextResponse("Not Found", { status: 404 })
+            return apiError("Notification not found", 404)
         }
 
         const updated = await db.notification.update({
@@ -31,7 +32,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json(updated)
     } catch (error) {
         console.error("[NOTIFICATION_PATCH]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
 
@@ -41,7 +42,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
         const session = await verifySession()
         if (!session) {
-            return new NextResponse("Unauthorized", { status: 401 })
+            return apiError("Unauthorized", 401)
         }
 
         const id = parseInt(idString)
@@ -53,7 +54,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         })
 
         if (!notification) {
-            return new NextResponse("Not Found", { status: 404 })
+            return apiError("Notification not found", 404)
         }
 
         await db.notification.delete({
@@ -63,6 +64,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         return new NextResponse(null, { status: 204 })
     } catch (error) {
         console.error("[NOTIFICATION_DELETE]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return apiError("Internal Error", 500)
     }
 }
