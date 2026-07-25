@@ -125,3 +125,4 @@ export async function GET(req: Request) {
         return NextResponse.redirect(`${baseUrl}/login?error=Internal server error during Google login`)
     }
 }
+

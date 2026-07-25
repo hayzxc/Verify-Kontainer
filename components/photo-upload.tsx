@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { X, Camera, CheckCircle2 } from "lucide-react"
+import { X, Camera, CheckCircle2, CloudUpload, CloudOff, Loader2 } from "lucide-react"
 import { compressImageBase64, getBase64ByteSize, formatFileSize } from "@/lib/image-compression"
 
 interface PhotoUploadProps {
@@ -19,6 +19,8 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isCamera, setIsCamera] = useState(false)
   const [isCompressing, setIsCompressing] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(false)
 
   useEffect(() => {
     setPreview(photo)
@@ -26,7 +28,13 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+      })
       setIsCamera(true)
       setTimeout(() => {
         if (videoRef.current) {
@@ -39,20 +47,65 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
     }
   }
 
+  /** Upload compressed base64 to cloud storage, return the URL */
+  const uploadToCloud = async (base64: string): Promise<string | null> => {
+    try {
+      setIsUploading(true)
+      setUploadError(false)
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base64,
+          filename: `inspection-${photoType}-${Date.now()}.jpg`,
+        }),
+      })
+      if (!res.ok) throw new Error("Upload failed")
+      const data = await res.json()
+      return data.data?.url ?? null
+    } catch (err) {
+      console.error("[PhotoUpload] Cloud upload failed:", err)
+      setUploadError(true)
+      return null
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext("2d")
       if (context) {
         setIsCompressing(true)
-        context.drawImage(videoRef.current, 0, 0)
-        const rawData = canvasRef.current.toDataURL("image/jpeg", 0.9)
-        
-        // Compress photo to 1280px max resolution and 75% quality JPEG
-        const compressedData = await compressImageBase64(rawData, 1280, 0.75)
+        // Use actual video stream resolution instead of hardcoded canvas size
+        const video = videoRef.current
+        const captureWidth = video.videoWidth || 1920
+        const captureHeight = video.videoHeight || 1080
+        canvasRef.current.width = captureWidth
+        canvasRef.current.height = captureHeight
+        context.imageSmoothingEnabled = true
+        context.imageSmoothingQuality = "high"
+        context.drawImage(video, 0, 0, captureWidth, captureHeight)
+        const rawData = canvasRef.current.toDataURL("image/jpeg", 0.95)
+
+        // Compress photo to 1920px max resolution and 85% quality JPEG
+        const compressedData = await compressImageBase64(rawData, 1920, 0.85)
+
+        // Show preview immediately using base64
         setPreview(compressedData)
-        onCapture(photoType, compressedData)
         setIsCompressing(false)
         stopCamera()
+
+        // Upload to cloud storage — store only the URL
+        const cloudUrl = await uploadToCloud(compressedData)
+        if (cloudUrl) {
+          setPreview(cloudUrl)
+          onCapture(photoType, cloudUrl)
+        } else {
+          // Fallback: keep base64 so user doesn't lose the photo
+          onCapture(photoType, compressedData)
+        }
       }
     }
   }
@@ -67,10 +120,26 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
 
   const removePhoto = () => {
     setPreview(null)
+    setUploadError(false)
     onCapture(photoType, null)
   }
 
-  const photoWeight = preview ? formatFileSize(getBase64ByteSize(preview)) : null
+  /** Retry upload if it failed */
+  const retryUpload = async () => {
+    if (!preview || isCloudUrl(preview)) return
+    const cloudUrl = await uploadToCloud(preview)
+    if (cloudUrl) {
+      setPreview(cloudUrl)
+      onCapture(photoType, cloudUrl)
+    }
+  }
+
+  /** Check if a string is a cloud URL (not base64) */
+  const isCloudUrl = (s: string) => s.startsWith("http")
+
+  /** Base64 photos have a weight; cloud URLs don't */
+  const photoWeight = preview && !isCloudUrl(preview) ? formatFileSize(getBase64ByteSize(preview)) : null
+  const isStoredInCloud = preview ? isCloudUrl(preview) : false
 
   return (
     <Card className="p-3 sm:p-4 shadow-xs border-border">
@@ -85,13 +154,40 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
       </div>
 
       {isCompressing ? (
-        <div className="h-36 sm:h-48 flex items-center justify-center bg-muted/40 rounded-lg">
+        <div className="h-36 sm:h-48 flex flex-col items-center justify-center bg-muted/40 rounded-lg gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           <p className="text-xs text-muted-foreground animate-pulse">Mengompresi foto...</p>
         </div>
       ) : preview ? (
         <div className="relative bg-black/5 dark:bg-white/5 rounded-lg p-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt={label} className="w-full h-36 sm:h-48 object-contain rounded-md" />
+
+          {/* Cloud status indicator */}
+          <div className="absolute top-2 left-2 flex items-center gap-1">
+            {isUploading ? (
+              <span className="text-[10px] text-blue-700 bg-blue-50/90 border border-blue-200 rounded px-1.5 py-0.5 flex items-center gap-1 font-mono backdrop-blur-xs">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Mengunggah...
+              </span>
+            ) : isStoredInCloud ? (
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5 flex items-center gap-1 font-mono backdrop-blur-xs">
+                <CloudUpload className="w-3 h-3" />
+                Cloud
+              </span>
+            ) : uploadError ? (
+              <button
+                type="button"
+                onClick={retryUpload}
+                className="text-[10px] text-orange-700 bg-orange-50/90 border border-orange-200 rounded px-1.5 py-0.5 flex items-center gap-1 font-mono backdrop-blur-xs cursor-pointer hover:bg-orange-100"
+                title="Gagal mengunggah ke cloud, klik untuk coba lagi"
+              >
+                <CloudOff className="w-3 h-3" />
+                Gagal — Coba Lagi
+              </button>
+            ) : null}
+          </div>
+
           <Button
             type="button"
             variant="destructive"
@@ -106,7 +202,7 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
       ) : isCamera ? (
         <div className="space-y-2">
           <video ref={videoRef} autoPlay playsInline className="w-full h-36 sm:h-48 bg-black rounded-lg object-cover" />
-          <canvas ref={canvasRef} className="hidden" width="1280" height="960" />
+          <canvas ref={canvasRef} className="hidden" />
           <div className="flex gap-2">
             <Button type="button" onClick={capturePhoto} variant="default" className="flex-1 text-xs sm:text-sm h-10">
               <Camera className="w-4 h-4 mr-1.5" />

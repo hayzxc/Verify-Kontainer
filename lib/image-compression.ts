@@ -1,13 +1,13 @@
 /**
  * Client-side Image Compression Utility
  * Resizes and compresses camera/file photos to JPEG using HTML5 Canvas.
- * Reduces Base64 payload weights by 90-95% (from ~3MB down to ~150KB).
+ * Reduces Base64 payload weights while preserving visual quality.
  */
 
 export async function compressImageBase64(
   base64DataUrl: string,
-  maxDimension = 1280,
-  quality = 0.75
+  maxDimension = 1920,
+  quality = 0.85
 ): Promise<string> {
   return new Promise((resolve) => {
     // If invalid or empty data URL, return as is
@@ -42,6 +42,10 @@ export async function compressImageBase64(
         resolve(base64DataUrl)
         return
       }
+
+      // Enable high-quality image smoothing for better downscaling
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = "high"
 
       // Draw and compress to JPEG format
       ctx.drawImage(img, 0, 0, width, height)
