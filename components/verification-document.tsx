@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Download, Printer, Loader2 } from "lucide-react"
 import { useRef } from "react"
 import type { Inspection } from "@/types/inspection"
+import { StaticMap } from "@/components/static-map"
 
 export function VerificationDocument({ inspections }: { inspections: Inspection[] }) {
   const documentRef = useRef<HTMLDivElement>(null)
@@ -216,9 +217,6 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
             {inspectionsWithAddress.map((inspection, insIdx) => {
               const lat = inspection.location?.latitude
               const lng = inspection.location?.longitude
-              const mapUrl = lat && lng
-                ? `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=400x300&markers=${lat},${lng},red-pushpin`
-                : null
 
               const photoRows = [
                 {
@@ -356,12 +354,11 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
                             {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
                             <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
-                              {mapUrl ? (
+                              {lat && lng ? (
                                 <div className="space-y-2">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={mapUrl}
-                                    alt="Location Map"
+                                  <StaticMap
+                                    lat={lat}
+                                    lng={lng}
                                     className="w-full h-44 sm:h-52 object-cover border-2 border-black block rounded-xs bg-gray-200"
                                   />
                                   <div className="text-left text-[10px] font-sans bg-white p-2 border border-black rounded-xs space-y-0.5">
