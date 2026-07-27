@@ -13,6 +13,8 @@ export const InspectionSchema = z.object({
     shipperName: z.string().min(1, "Shipper name is required"),
     commodityType: z.string().min(1, "Commodity type is required"),
     containerNumber: z.string().min(1, "Container number is required"),
+    inspectionLocationType: z.string().optional(),
+    inspectionLocationName: z.string().optional(),
     notes: z.string().optional(),
     stackingDescription: z.string().optional(),
     slicingDescription: z.string().optional(),

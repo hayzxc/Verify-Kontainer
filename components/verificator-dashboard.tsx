@@ -223,6 +223,8 @@ export function VerificatorDashboard({ user }: { user: User }) {
       shipperName: inspection.shipperName,
       commodityType: inspection.commodityType,
       containerNumber: inspection.containerNumber || "",
+      inspectionLocationType: inspection.inspectionLocationType || "",
+      inspectionLocationName: inspection.inspectionLocationName || "",
       notes: inspection.notes || "",
       location: inspection.location,
       photos: inspection.photos || {
@@ -248,6 +250,8 @@ export function VerificatorDashboard({ user }: { user: User }) {
       shipperName: sourceData.shipperName,
       commodityType: sourceData.commodityType,
       containerNumber: "",
+      inspectionLocationType: sourceData.inspectionLocationType || "",
+      inspectionLocationName: sourceData.inspectionLocationName || "",
       notes: sourceData.notes || "",
       location: sourceData.location,
       photos: {
@@ -511,7 +515,8 @@ export function VerificatorDashboard({ user }: { user: User }) {
                                     {getStatusBadge(inspection.status)}
                                   </div>
                                   <p className="text-xs sm:text-sm text-muted-foreground">
-                                    {inspection.commodityType} · No. {inspection.containerNumber || "-"} ·{" "}
+                                    {inspection.commodityType} · No. {inspection.containerNumber || "-"}
+                                    {inspection.inspectionLocationName ? ` · ${inspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} (${inspection.inspectionLocationName})` : ""} ·{" "}
                                     {new Date(inspection.createdAt).toLocaleString("id-ID")}
                                   </p>
                                   {inspection.adminNotes && (

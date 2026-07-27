@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, MapPin, RefreshCw } from "lucide-react"
+import { isNativePlatform, getNativePosition } from "@/lib/capacitor-bridge"
 
 interface LocationData {
   latitude: number
@@ -71,6 +72,20 @@ export function LocationTracker({ onLocationUpdate, location }: LocationTrackerP
     setIsLoading(true)
     setError("")
     setManualMode(false)
+
+    // Native Capacitor Mobile Fast Path
+    if (isNativePlatform()) {
+      try {
+        const nativePos = await getNativePosition()
+        if (nativePos) {
+          await updateLocation(nativePos.latitude, nativePos.longitude)
+          setIsLoading(false)
+          return
+        }
+      } catch (nativeErr) {
+        console.warn("[LocationTracker] Native GPS failed, falling back to Web API:", nativeErr)
+      }
+    }
 
     if (!navigator.geolocation) {
       setError("Geolocation tidak didukung oleh browser Anda")

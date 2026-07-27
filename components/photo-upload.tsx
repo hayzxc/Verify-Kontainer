@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { X, Camera, CheckCircle2, CloudUpload, CloudOff, Loader2 } from "lucide-react"
 import { compressImageBase64, getBase64ByteSize, formatFileSize } from "@/lib/image-compression"
+import { isNativePlatform, captureNativePhoto } from "@/lib/capacitor-bridge"
 
 interface PhotoUploadProps {
   label: string
@@ -27,6 +28,31 @@ export function PhotoUpload({ label, photoType, photo, onCapture }: PhotoUploadP
   }, [photo])
 
   const startCamera = async () => {
+    // Native Capacitor Mobile Fast Path
+    if (isNativePlatform()) {
+      try {
+        const rawNativeBase64 = await captureNativePhoto()
+        if (rawNativeBase64) {
+          setIsCompressing(true)
+          const compressedData = await compressImageBase64(rawNativeBase64, 1920, 0.85)
+          setPreview(compressedData)
+          setIsCompressing(false)
+
+          const cloudUrl = await uploadToCloud(compressedData)
+          if (cloudUrl) {
+            setPreview(cloudUrl)
+            onCapture(photoType, cloudUrl)
+          } else {
+            onCapture(photoType, compressedData)
+          }
+          return
+        }
+      } catch (nativeErr) {
+        console.warn("[PhotoUpload] Native camera capture failed:", nativeErr)
+      }
+      return
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {

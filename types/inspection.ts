@@ -27,6 +27,8 @@ export interface InspectionData {
     shipperName: string
     commodityType: string
     containerNumber: string
+    inspectionLocationType?: "depo" | "pabrik" | ""
+    inspectionLocationName?: string
     notes: string
     location: LocationData | null
     photos: InspectionPhotos
@@ -50,6 +52,8 @@ export interface Inspection extends InspectionData {
 export interface BulkInspectionData {
     shipperName: string
     commodityType: string
+    inspectionLocationType?: "depo" | "pabrik" | ""
+    inspectionLocationName?: string
     containerNumbers: string[]
     notes: string
     location: LocationData | null

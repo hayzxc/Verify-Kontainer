@@ -270,6 +270,9 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                       </span>
                       <span className="ml-3 text-xs text-gray-200">
                         • Shipper: <strong className="text-white">{inspection.shipperName}</strong> • Komoditi: <strong className="text-white capitalize">{inspection.commodityType}</strong>
+                        {inspection.inspectionLocationName && (
+                          <> • Lokasi: <strong className="text-yellow-300">{inspection.inspectionLocationType === 'depo' ? 'Depo' : 'Pabrik'} - {inspection.inspectionLocationName}</strong></>
+                        )}
                       </span>
                     </div>
                     <span className="text-xs bg-gray-800 text-gray-200 px-2.5 py-1 rounded border border-gray-700 font-medium">

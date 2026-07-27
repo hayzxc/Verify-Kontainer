@@ -70,6 +70,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             if (body.shipperName) updatePayload.shipperName = body.shipperName
             if (body.commodityType) updatePayload.commodityType = body.commodityType
             if (body.containerNumber !== undefined) updatePayload.containerNumber = body.containerNumber
+            if (body.inspectionLocationType !== undefined) updatePayload.inspectionLocationType = body.inspectionLocationType
+            if (body.inspectionLocationName !== undefined) updatePayload.inspectionLocationName = body.inspectionLocationName
             if (body.notes !== undefined) updatePayload.notes = body.notes
             if (body.stackingDescription !== undefined) updatePayload.stackingDescription = body.stackingDescription
             if (body.slicingDescription !== undefined) updatePayload.moistureDescription = body.slicingDescription

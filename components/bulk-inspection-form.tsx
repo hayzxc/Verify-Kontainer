@@ -20,6 +20,8 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
     const [formData, setFormData] = useState<Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string }>({
         shipperName: "",
         commodityType: "",
+        inspectionLocationType: "",
+        inspectionLocationName: "",
         containerNumbersText: "",
         notes: "",
         location: null,
@@ -83,6 +85,8 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
         const bulkData: BulkInspectionData = {
             shipperName: formData.shipperName,
             commodityType: formData.commodityType,
+            inspectionLocationType: formData.inspectionLocationType,
+            inspectionLocationName: formData.inspectionLocationName,
             containerNumbers,
             notes: formData.notes,
             location: formData.location,
@@ -158,6 +162,59 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            <div>
+                                <Label htmlFor="inspectionLocationType">Tipe Lokasi Pemeriksaan</Label>
+                                <Select
+                                    value={formData.inspectionLocationType || ""}
+                                    onValueChange={(value) => setFormData((prev) => ({
+                                        ...prev,
+                                        inspectionLocationType: value as "depo" | "pabrik",
+                                        inspectionLocationName: value === "depo" ? "Depo SPP" : ""
+                                    }))}
+                                >
+                                    <SelectTrigger className="mt-2">
+                                        <SelectValue placeholder="Pilih Tipe Lokasi (Depo / Pabrik)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="depo">Depo</SelectItem>
+                                        <SelectItem value="pabrik">Pabrik</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {formData.inspectionLocationType === "depo" && (
+                                <div>
+                                    <Label htmlFor="inspectionLocationName">Pilih Depo</Label>
+                                    <Select
+                                        value={formData.inspectionLocationName || "Depo SPP"}
+                                        onValueChange={(value) => setFormData((prev) => ({ ...prev, inspectionLocationName: value }))}
+                                    >
+                                        <SelectTrigger className="mt-2">
+                                            <SelectValue placeholder="Pilih Depo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Depo SPP">Depo SPP</SelectItem>
+                                            <SelectItem value="Depo Patriot">Depo Patriot</SelectItem>
+                                            <SelectItem value="Depo DSS">Depo DSS</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {formData.inspectionLocationType === "pabrik" && (
+                                <div>
+                                    <Label htmlFor="inspectionLocationName">Nama / Detail Pabrik</Label>
+                                    <Input
+                                        id="inspectionLocationName"
+                                        name="inspectionLocationName"
+                                        placeholder="Masukkan nama / lokasi pabrik"
+                                        value={formData.inspectionLocationName || ""}
+                                        onChange={handleInputChange}
+                                        className="mt-2"
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div>

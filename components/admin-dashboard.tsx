@@ -7,10 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { LogOut, Users, FileText, Container, Clock, CheckCircle, AlertCircle, Eye, Trash2 } from "lucide-react"
+import { LogOut, Users, FileText, Container, Clock, CheckCircle, AlertCircle, Eye, Trash2, TrendingUp, FileSpreadsheet } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { InspectionFilters, type FilterState } from "@/components/inspection-filters"
+import { AnalyticsDashboard } from "@/components/analytics-dashboard"
+import { exportToCSV, exportToExcel } from "@/lib/export-utils"
 
 // ... inside AdminDashboard ...
 
@@ -402,7 +404,7 @@ export function AdminDashboard({ user }: { user: User }) {
 
         <Tabs defaultValue="review" className="w-full">
           <div className="overflow-x-auto w-full no-scrollbar pb-1">
-            <TabsList className="grid w-full min-w-[420px] grid-cols-4 text-xs sm:text-sm">
+            <TabsList className="grid w-full min-w-[540px] grid-cols-5 text-xs sm:text-sm">
               <TabsTrigger value="review" className="relative text-xs sm:text-sm px-2">
                 <Clock className="h-3.5 w-3.5 mr-1 sm:mr-2" />
                 Tinjau
@@ -411,6 +413,10 @@ export function AdminDashboard({ user }: { user: User }) {
                     {pendingCount}
                   </span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="text-xs sm:text-sm px-2">
+                <TrendingUp className="h-3.5 w-3.5 mr-1 sm:mr-2 text-primary" />
+                Analitik
               </TabsTrigger>
               <TabsTrigger value="form" className="text-xs sm:text-sm px-2">Inspeksi Baru</TabsTrigger>
               <TabsTrigger value="history" className="text-xs sm:text-sm px-2">
@@ -423,6 +429,10 @@ export function AdminDashboard({ user }: { user: User }) {
               </TabsTrigger>
             </TabsList>
           </div>
+
+          <TabsContent value="analytics" className="mt-8">
+            <AnalyticsDashboard inspections={inspections} />
+          </TabsContent>
 
           <TabsContent value="review" className="mt-8">
             <Card>
@@ -464,6 +474,14 @@ export function AdminDashboard({ user }: { user: User }) {
                                   Komoditi:{" "}
                                   <span className="font-medium text-foreground">{inspection.commodityType}</span>
                                 </p>
+                                {inspection.inspectionLocationName && (
+                                  <p>
+                                    Lokasi Pemeriksaan:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {inspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} ({inspection.inspectionLocationName})
+                                    </span>
+                                  </p>
+                                )}
                                 <p>
                                   Petugas: <span className="font-medium text-foreground">{inspection.createdBy}</span>
                                 </p>
@@ -525,11 +543,32 @@ export function AdminDashboard({ user }: { user: User }) {
 
           <TabsContent value="history" className="mt-8">
             <Card>
-              <CardHeader>
-                <CardTitle>Semua Inspeksi</CardTitle>
-                <CardDescription>
-                  Lihat semua inspeksi dari semua verifikator ({inspections.length} total)
-                </CardDescription>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Semua Inspeksi</CardTitle>
+                  <CardDescription>
+                    Lihat semua inspeksi dari semua verifikator ({inspections.length} total)
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportToCSV(inspections)}
+                    className="text-xs"
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                    CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => exportToExcel(inspections)}
+                    className="text-xs bg-emerald-700 hover:bg-emerald-800 text-white"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 mr-1" />
+                    Excel (.xlsx)
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <InspectionFilters
@@ -560,7 +599,8 @@ export function AdminDashboard({ user }: { user: User }) {
                                 {getStatusBadge(inspection.status)}
                               </div>
                               <p className="text-xs sm:text-sm text-muted-foreground">
-                                {inspection.commodityType} | Oleh: {inspection.createdBy} |{" "}
+                                {inspection.commodityType}
+                                {inspection.inspectionLocationName ? ` · ${inspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} (${inspection.inspectionLocationName})` : ""} · Oleh: {inspection.createdBy} ·{" "}
                                 {new Date(inspection.createdAt).toLocaleString("id-ID")}
                               </p>
                             </div>
@@ -615,6 +655,9 @@ export function AdminDashboard({ user }: { user: User }) {
                   </div>
                   <div className="text-sm space-y-1 text-muted-foreground">
                     <p>Komoditi: <span className="font-medium text-foreground">{reviewingInspection.commodityType}</span></p>
+                    {reviewingInspection.inspectionLocationName && (
+                      <p>Lokasi Pemeriksaan: <span className="font-medium text-foreground">{reviewingInspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} - {reviewingInspection.inspectionLocationName}</span></p>
+                    )}
                     <p>Dikirim oleh: <span className="font-medium text-foreground">{reviewingInspection.createdBy}</span></p>
                     <p>Tanggal: <span className="font-medium text-foreground">{new Date(reviewingInspection.createdAt).toLocaleString("id-ID")}</span></p>
                     {reviewingInspection.notes && <p className="mt-1 text-foreground bg-background p-2 rounded border">Catatan: {reviewingInspection.notes}</p>}

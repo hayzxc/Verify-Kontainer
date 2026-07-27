@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Prana Verify</string>
+    <string name="title_activity_main">Prana Verify</string>
+    <string name="package_name">id.my.cekkontainer.app</string>
+    <string name="custom_url_scheme">id.my.cekkontainer.app</string>
+</resources>
