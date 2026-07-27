@@ -229,13 +229,15 @@ function LoginFormContent() {
   )
 }
 
+import { GooeyLoader } from "@/components/ui/gooey-loader"
+
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center px-4 py-8">
       <Suspense
         fallback={
-          <Card className="w-full max-w-md p-6 text-center text-muted-foreground">
-            Memuat...
+          <Card className="w-full max-w-md p-8 flex flex-col items-center justify-center">
+            <GooeyLoader size="md" text="Memuat..." />
           </Card>
         }
       >
