@@ -35,6 +35,7 @@ import {
 } from "lucide-react"
 import type { Inspection } from "@/types/inspection"
 import { exportToCSV, exportToExcel } from "@/lib/export-utils"
+import { GooeyLoader } from "@/components/ui/gooey-loader"
 
 interface AnalyticsData {
     kpi: {
@@ -199,6 +200,13 @@ export function AnalyticsDashboard({ inspections = [] }: { inspections?: Inspect
                     </Button>
                 </div>
             </div>
+
+            {loading && !analytics ? (
+                <div className="py-20 flex justify-center items-center">
+                    <GooeyLoader text="Memuat data analitik..." size="lg" />
+                </div>
+            ) : (
+                <>
 
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -395,6 +403,8 @@ export function AnalyticsDashboard({ inspections = [] }: { inspections?: Inspect
                     </CardContent>
                 </Card>
             </div>
+            </>
+            )}
         </div>
     )
 }

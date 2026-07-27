@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { InspectionFilters, type FilterState } from "@/components/inspection-filters"
 import { AnalyticsDashboard } from "@/components/analytics-dashboard"
 import { exportToCSV, exportToExcel } from "@/lib/export-utils"
+import { GooeyLoader } from "@/components/ui/gooey-loader"
 
 // ... inside AdminDashboard ...
 
@@ -24,7 +25,7 @@ import dynamic from "next/dynamic"
 
 const VerificationDocument = dynamic(
   () => import("@/components/verification-document").then((mod) => mod.VerificationDocument),
-  { loading: () => <p>Loading document...</p> }
+  { loading: () => <div className="py-12 flex justify-center"><GooeyLoader size="sm" text="Memuat Dokumen..." /></div> }
 )
 import { UserManagement } from "@/components/user-management"
 import type { Inspection, InspectionData } from "@/types/inspection"

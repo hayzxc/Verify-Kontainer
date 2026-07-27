@@ -124,3 +124,31 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Gooey Liquid Loader Animation matching user image */
+@keyframes gooey-blob-main {
+  0%, 100% {
+    transform: translateX(-8px) scale(1);
+  }
+  50% {
+    transform: translateX(-18px) scale(0.92);
+  }
+}
+
+@keyframes gooey-blob-satellite {
+  0%, 100% {
+    transform: translateX(18px) scale(0.88);
+  }
+  50% {
+    transform: translateX(48px) scale(1.08);
+  }
+}
+
+.animate-gooey-main {
+  animation: gooey-blob-main 1.8s ease-in-out infinite;
+}
+
+.animate-gooey-satellite {
+  animation: gooey-blob-satellite 1.8s ease-in-out infinite;
+}
+
