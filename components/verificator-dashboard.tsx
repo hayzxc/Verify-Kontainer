@@ -21,7 +21,17 @@ import type { Inspection, InspectionData } from "@/types/inspection"
 const MAX_SELECTION = 4
 
 export function VerificatorDashboard({ user }: { user: User }) {
-  const [inspections, setInspections] = useState<Inspection[]>([])
+  const [inspections, setInspections] = useState<Inspection[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem(`inspections_${user.name}`)
+        return cached ? JSON.parse(cached) : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  })
   const [documentInspections, setDocumentInspections] = useState<Inspection[]>([])
   const [showDocumentPreview, setShowDocumentPreview] = useState(false)
   const [activeTab, setActiveTab] = useState("form")
@@ -68,9 +78,14 @@ export function VerificatorDashboard({ user }: { user: User }) {
         router.push("/login")
         return
       }
-      if (!res.ok) throw new Error("Failed to fetch")
       const data = await res.json()
-      setInspections(data.data || [])
+      const list = data.data || []
+      setInspections(list)
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(`inspections_${user.name}`, JSON.stringify(list.slice(0, 50)))
+        } catch {}
+      }
     } catch (error) {
       console.error("Failed to load inspections:", error)
     }

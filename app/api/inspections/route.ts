@@ -177,8 +177,8 @@ export async function POST(req: Request) {
             },
         })
 
-        // Notify all admins about new inspection
-        await notifyAdmins(
+        // Notify all admins about new inspection in background (non-blocking for fast submission response)
+        void notifyAdmins(
             "inspection_submitted",
             "Inspeksi Baru",
             `Inspeksi baru dari ${createdBy || "Unknown User"} untuk ${shipperName}`,

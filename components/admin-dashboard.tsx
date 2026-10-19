@@ -46,7 +46,17 @@ interface UserData {
 }
 
 export function AdminDashboard({ user }: { user: User }) {
-  const [inspections, setInspections] = useState<Inspection[]>([])
+  const [inspections, setInspections] = useState<Inspection[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("admin_inspections")
+        return cached ? JSON.parse(cached) : []
+      } catch {
+        return []
+      }
+    }
+    return []
+  })
   const [users, setUsers] = useState<UserData[]>([])
   const [previewInspections, setPreviewInspections] = useState<Inspection[]>([])
   const [documentSelection, setDocumentSelection] = useState<Inspection[]>([])
@@ -78,17 +88,27 @@ export function AdminDashboard({ user }: { user: User }) {
       if (f.dateFrom) params.set("dateFrom", f.dateFrom)
       if (f.dateTo) params.set("dateTo", f.dateTo)
 
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       const res = await fetch(`/api/inspections?${params.toString()}`, {
         credentials: "include",
+        headers,
       })
       if (res.status === 401) {
         logout()
         router.push("/login")
         return
       }
-      if (!res.ok) throw new Error("Failed to fetch inspections")
       const data = await res.json()
-      setInspections(data.data || [])
+      const list = data.data || []
+      setInspections(list)
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem("admin_inspections", JSON.stringify(list.slice(0, 50)))
+        } catch {}
+      }
     } catch (error) {
       console.error("Failed to load inspections:", error)
     }

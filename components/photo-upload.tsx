@@ -231,16 +231,26 @@ export function PhotoUpload({
       if (context) {
         setIsCompressing(true)
         const video = videoRef.current
-        const captureWidth = video.videoWidth || 1920
-        const captureHeight = video.videoHeight || 1080
-        canvasRef.current.width = captureWidth
-        canvasRef.current.height = captureHeight
+        let width = video.videoWidth || 1920
+        let height = video.videoHeight || 1080
+        const maxDimension = 1280
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width)
+            width = maxDimension
+          } else {
+            width = Math.round((width * maxDimension) / height)
+            height = maxDimension
+          }
+        }
+
+        canvasRef.current.width = width
+        canvasRef.current.height = height
         context.imageSmoothingEnabled = true
         context.imageSmoothingQuality = "high"
-        context.drawImage(video, 0, 0, captureWidth, captureHeight)
-        const rawData = canvasRef.current.toDataURL("image/jpeg", 0.95)
-
-        const compressedData = await compressImageBase64(rawData, 1280, 0.75)
+        context.drawImage(video, 0, 0, width, height)
+        const compressedData = canvasRef.current.toDataURL("image/jpeg", 0.75)
         setIsCompressing(false)
 
         await addPhoto(compressedData)

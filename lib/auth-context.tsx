@@ -24,8 +24,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("currentUser")
+        return stored ? JSON.parse(stored) : null
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== "undefined") {
+      return !localStorage.getItem("currentUser")
+    }
+    return true
+  })
 
   useEffect(() => {
     // Check for existing session
