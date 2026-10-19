@@ -14,7 +14,7 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-
+  devIndicators: false,
   images: {
     unoptimized: true,
   },
