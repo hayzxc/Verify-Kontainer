@@ -53,8 +53,8 @@ export function PhotoUpload({
 }: PhotoUploadProps) {
   const { user } = useAuth()
   const isPrivileged = user?.role === "verificator" || user?.role === "admin"
-  // Allow gallery upload for all users by default so field and desktop users can attach files easily
-  const canUseGallery = allowGallery !== undefined ? allowGallery : true
+  // Gallery upload is strictly restricted to admin and verificator roles; regular users must use camera
+  const canUseGallery = isPrivileged && (allowGallery !== undefined ? allowGallery : true)
 
   const [entries, setEntries] = useState<PhotoEntry[]>([])
   const entriesRef = useRef<PhotoEntry[]>([])
@@ -259,6 +259,12 @@ export function PhotoUpload({
 
   // ─── Gallery File Selection ────────────────────────────────────
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canUseGallery) {
+      alert("Akses galeri hanya diizinkan untuk Admin dan Petugas Verifikator.")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
+
     const files = e.target.files
     if (!files || files.length === 0) return
 
