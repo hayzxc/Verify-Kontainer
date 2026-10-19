@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         }
         const fileExt = extMap[mimeType.toLowerCase()] || "jpg"
         const fileName = filename || `inspection-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`
-        const file = new File([buffer], fileName, { type: mimeType })
+        const file = new File([buffer as any], fileName, { type: mimeType })
 
         console.log(`[UPLOAD] Uploading file ${fileName} (${(buffer.length / 1024).toFixed(1)} KB) for user ${session.email}...`)
         const result = await utapi.uploadFiles(file)
