@@ -168,12 +168,12 @@ export function PhotoUpload({
       const updated = entriesRef.current.map((e) =>
         e.id === entryId
           ? {
-              ...e,
-              src: finalSrc,
-              isUploading: false,
-              uploadError: !cloudUrl,
-              isCloud: !!cloudUrl,
-            }
+            ...e,
+            src: finalSrc,
+            isUploading: false,
+            uploadError: !cloudUrl,
+            isCloud: !!cloudUrl,
+          }
           : e
       )
       entriesRef.current = updated
@@ -323,12 +323,12 @@ export function PhotoUpload({
     const updated = entriesRef.current.map((e) =>
       e.id === entryId
         ? {
-            ...e,
-            src: finalSrc,
-            isUploading: false,
-            uploadError: !cloudUrl,
-            isCloud: !!cloudUrl,
-          }
+          ...e,
+          src: finalSrc,
+          isUploading: false,
+          uploadError: !cloudUrl,
+          isCloud: !!cloudUrl,
+        }
         : e
     )
     entriesRef.current = updated

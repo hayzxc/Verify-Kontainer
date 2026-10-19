@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for existing session
-    ;(async () => {
+    ; (async () => {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
         const headers: Record<string, string> = {}
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
-    fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {})
+    fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => { })
     setUser(null)
     localStorage.removeItem("currentUser")
     localStorage.removeItem("sessionToken")

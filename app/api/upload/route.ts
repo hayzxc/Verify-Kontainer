@@ -3,7 +3,12 @@ import { UTApi } from "uploadthing/server"
 import { verifySession } from "@/lib/auth"
 import { apiError, apiSuccess } from "@/lib/api-response"
 
-const utapi = new UTApi()
+const UPLOADTHING_FALLBACK_TOKEN =
+    "eyJhcGlLZXkiOiJza19saXZlX2ViN2YzMmY0NjRkMWRjYzQ2Yzg0NjlkZWZhMmE3OTQ0YmU4YzRlOWVhODg0Zjc3OGUwZTE4ZDQ5MDljOTAyZjgiLCJhcHBJZCI6IjdoZTZucmJ2YmgiLCJyZWdpb25zIjpbInNlYTEiXX0="
+
+const utapi = new UTApi({
+    token: process.env.UPLOADTHING_TOKEN || UPLOADTHING_FALLBACK_TOKEN,
+})
 
 export async function POST(req: NextRequest) {
     try {

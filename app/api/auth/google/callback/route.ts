@@ -77,8 +77,8 @@ export async function GET(req: Request) {
         // 1. First check if user exists by googleId
         let user = googleId
             ? await db.user.findUnique({
-                  where: { googleId },
-              })
+                where: { googleId },
+            })
             : null
 
         // 2. If not found by googleId, check by email
