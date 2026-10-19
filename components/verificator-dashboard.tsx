@@ -103,9 +103,14 @@ export function VerificatorDashboard({ user }: { user: User }) {
           body: JSON.stringify(newInspection),
         })
 
-        if (!res.ok) throw new Error("Failed to resubmit inspection")
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null)
+          const errorMsg = errData?.error?.message || errData?.message || `Gagal memperbarui inspeksi (Status ${res.status}). Silakan coba lagi.`
+          throw new Error(errorMsg)
+        }
 
-        const updatedInspection: Inspection = await res.json()
+        const resJson = await res.json()
+        const updatedInspection: Inspection = resJson.data || resJson
         setInspections((prev) => prev.map(i => i.id === updatedInspection.id ? updatedInspection : i))
         setEditingInspectionId(null)
         setInitialFormData(undefined)
@@ -122,16 +127,22 @@ export function VerificatorDashboard({ user }: { user: User }) {
           }),
         })
 
-        if (!res.ok) throw new Error("Failed to save")
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null)
+          const errorMsg = errData?.error?.message || errData?.message || `Gagal menyimpan data (Status ${res.status}). Silakan coba lagi.`
+          throw new Error(errorMsg)
+        }
 
-        const savedInspection: Inspection = await res.json()
-        setInspections((prev) => [savedInspection, ...prev])
+        const resJson = await res.json()
+        const savedInspection: Inspection = resJson.data || resJson
+        setInspections((prev) => [savedInspection, ...prev.filter((i) => i.id !== savedInspection.id)])
         setLastSavedInspection(savedInspection)
         alert("Inspeksi berhasil dikirim ke Admin untuk verifikasi!")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving inspection:", error)
-      alert("Gagal menyimpan data. Silakan coba lagi.")
+      alert(error.message || "Gagal menyimpan data. Silakan coba lagi.")
+      throw error
     }
   }
 
@@ -225,6 +236,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
       containerNumber: inspection.containerNumber || "",
       inspectionLocationType: inspection.inspectionLocationType || "",
       inspectionLocationName: inspection.inspectionLocationName || "",
+      verificationStage: inspection.verificationStage || "awal",
       notes: inspection.notes || "",
       location: inspection.location,
       photos: inspection.photos || {
@@ -234,6 +246,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
         ispm: null,
         stacking: null,
         slicing: null,
+        additionalPhotos: [],
       },
       stackingDescription: inspection.stackingDescription || "",
       slicingDescription: inspection.moistureDescription || "",
@@ -252,6 +265,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
       containerNumber: "",
       inspectionLocationType: sourceData.inspectionLocationType || "",
       inspectionLocationName: sourceData.inspectionLocationName || "",
+      verificationStage: sourceData.verificationStage || "awal",
       notes: sourceData.notes || "",
       location: sourceData.location,
       photos: {
@@ -261,6 +275,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
         ispm: null,
         stacking: null,
         slicing: null,
+        additionalPhotos: [],
       },
       stackingDescription: sourceData.stackingDescription || "",
       slicingDescription: sourceData.moistureDescription || "",
@@ -299,6 +314,21 @@ export function VerificatorDashboard({ user }: { user: User }) {
       default:
         return <Badge variant="secondary">Unknown</Badge>
     }
+  }
+
+  const getStageBadge = (stage?: string) => {
+    if (stage === "akhir") {
+      return (
+        <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-xs">
+          Verifikasi Akhir
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 font-semibold text-xs">
+        Verifikasi Awal
+      </Badge>
+    )
   }
 
   const selectionCount = docSelection.size
@@ -513,9 +543,10 @@ export function VerificatorDashboard({ user }: { user: User }) {
                                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <h3 className="font-semibold text-base sm:text-lg">{inspection.shipperName}</h3>
                                     {getStatusBadge(inspection.status)}
+                                    {getStageBadge(inspection.verificationStage)}
                                   </div>
                                   <p className="text-xs sm:text-sm text-muted-foreground">
-                                    {inspection.commodityType} · No. {inspection.containerNumber || "-"}
+                                    <span className="font-semibold text-foreground">{inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</span> · No. {inspection.containerNumber || "-"} · {inspection.commodityType}
                                     {inspection.inspectionLocationName ? ` · ${inspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} (${inspection.inspectionLocationName})` : ""} ·{" "}
                                     {new Date(inspection.createdAt).toLocaleString("id-ID")}
                                   </p>

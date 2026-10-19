@@ -42,19 +42,20 @@ export async function POST(req: NextRequest) {
 
         // Upload to UploadThing cloud storage
         const result = await utapi.uploadFiles(file)
+        const resItem = Array.isArray(result) ? result[0] : result
 
-        if (result.error) {
-            console.error("[UPLOAD] UploadThing error:", result.error)
-            return apiError("Failed to upload image to cloud storage", 500)
+        if (resItem?.error) {
+            console.error("[UPLOAD] UploadThing error:", resItem.error)
+            return apiError(resItem.error.message || "Failed to upload image to cloud storage", 500)
         }
 
-        // Return the cloud URL
-        const url = result.data?.url
+        // Return the cloud URL (UploadThing v7+ uses ufsUrl, legacy uses url)
+        const url = resItem?.data?.ufsUrl || resItem?.data?.url
         if (!url) {
             return apiError("Upload succeeded but no URL returned", 500)
         }
 
-        return apiSuccess({ url, key: result.data?.key })
+        return apiSuccess({ url, key: resItem?.data?.key })
     } catch (error) {
         console.error("[UPLOAD]", error)
         return apiError("Internal upload error", 500)

@@ -9,19 +9,35 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PhotoUpload } from "./photo-upload"
 import { LocationTracker } from "./location-tracker"
-import { MapPin, Camera, TreePine, Upload, FileText } from "lucide-react"
-import type { BulkInspectionData, LocationData } from "@/types/inspection"
+import { useAuth } from "@/lib/auth-context"
+import { MapPin, Camera, TreePine, Upload, FileText, ImagePlus, Calendar } from "lucide-react"
+import type { BulkInspectionData, LocationData, PhotoValue } from "@/types/inspection"
 
 interface BulkInspectionFormProps {
     onSave: (data: BulkInspectionData) => void
 }
 
 export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
+    const { user } = useAuth()
+    const isVerificatorOrAdmin = user?.role === "verificator" || user?.role === "admin"
+
+    const toLocalDatetimeString = (date: Date = new Date()) => {
+        const pad = (n: number) => String(n).padStart(2, "0")
+        const year = date.getFullYear()
+        const month = pad(date.getMonth() + 1)
+        const day = pad(date.getDate())
+        const hours = pad(date.getHours())
+        const minutes = pad(date.getMinutes())
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+    }
+
+    const [customDateTime, setCustomDateTime] = useState<string>(() => toLocalDatetimeString(new Date()))
     const [formData, setFormData] = useState<Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string }>({
         shipperName: "",
         commodityType: "",
         inspectionLocationType: "",
         inspectionLocationName: "",
+        verificationStage: "awal",
         containerNumbersText: "",
         notes: "",
         location: null,
@@ -43,7 +59,7 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
-    const handlePhotoCapture = (photoType: string, photo: string | null) => {
+    const handlePhotoCapture = (photoType: string, photo: PhotoValue) => {
         setFormData((prev) => ({
             ...prev,
             photos: { ...prev.photos, [photoType]: photo },
@@ -68,7 +84,16 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault()
-        setIsSubmitting(true)
+
+        if (!formData.shipperName?.trim()) {
+            alert("Nama Pengirim (Shipper) wajib diisi.")
+            return
+        }
+
+        if (!formData.commodityType?.trim()) {
+            alert("Silakan pilih Jenis Komoditi terlebih dahulu.")
+            return
+        }
 
         // Parse container numbers
         const containerNumbers = formData.containerNumbersText
@@ -77,41 +102,31 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
             .filter(s => s.length > 0)
 
         if (containerNumbers.length === 0) {
-            alert("Please enter at least one container number.")
-            setIsSubmitting(false)
+            alert("Mohon masukkan minimal satu nomor kontainer.")
             return
         }
+
+        setIsSubmitting(true)
+
+        const targetDate = isVerificatorOrAdmin && customDateTime ? new Date(customDateTime) : new Date()
 
         const bulkData: BulkInspectionData = {
             shipperName: formData.shipperName,
             commodityType: formData.commodityType,
             inspectionLocationType: formData.inspectionLocationType,
             inspectionLocationName: formData.inspectionLocationName,
+            verificationStage: formData.verificationStage || "awal",
             containerNumbers,
             notes: formData.notes,
             location: formData.location,
             photos: formData.photos,
             stackingDescription: formData.stackingDescription,
             slicingDescription: formData.slicingDescription,
+            createdAt: targetDate.toISOString(),
         }
 
         try {
-            // We will call the API from the parent or here?
-            // Let's call it here inside the component or pass the data up.
-            // The prop is `onSave: (count) => void`.
-            // So I should call API here.
-            // But `VerificatorDashboard` has the `user` context.
-            // I need pass `user` or use `useAuth`.
-            // I'll leave the API call to the dashboard component to keep it consistent with `InspectionForm` (which calls `onSave` but `VerificatorDashboard` does the fetch).
-            // Wait, `InspectionForm` creates the object and calls `onSave`. `VerificatorDashboard` does the fetch.
-            // So I should pass `bulkData` to `onSave`.
-            // But `InspectionForm`'s `onSave` takes `InspectionData`.
-            // `BulkInspectionForm`'s `onSave` should probably take `BulkInspectionData`.
-            // I'll adjust the props interface above.
-            // Actually, let's change the pattern. `VerificatorDashboard` expects `onSave` for single inspection.
-            // I'll create a new handler in `VerificatorDashboard` for bulk.
-            // For this component, I'll pass `onSave` that takes `BulkInspectionData`.
-            onSave(bulkData)
+            await onSave(bulkData)
         } catch (error) {
             console.error("Error preparing bulk inspection:", error)
         } finally {
@@ -132,16 +147,42 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="shipperName">Nama Shipper</Label>
+                                <Label htmlFor="shipperName">Nama Pengirim (Shipper)</Label>
                                 <Input
                                     id="shipperName"
                                     name="shipperName"
-                                    placeholder="Masukkan nama shipper"
                                     value={formData.shipperName}
                                     onChange={handleInputChange}
-                                    required
+                                    placeholder="Contoh: PT. Sumber Makmur"
                                     className="mt-2"
+                                    required
                                 />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="bulkVerificationStage">Tahap Verifikasi</Label>
+                                <Select
+                                    value={formData.verificationStage || "awal"}
+                                    onValueChange={(value) => setFormData((prev) => ({ ...prev, verificationStage: value as "awal" | "akhir" }))}
+                                >
+                                    <SelectTrigger className="mt-2">
+                                        <SelectValue placeholder="Pilih Tahap Verifikasi" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="awal">
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                                                Verifikasi Awal
+                                            </span>
+                                        </SelectItem>
+                                        <SelectItem value="akhir">
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                                Verifikasi Akhir
+                                            </span>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div>
@@ -259,6 +300,44 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                             />
                         </div>
 
+                        {/* Custom Upload Date & Time (Khusus Petugas Verifikator / Admin) */}
+                        {isVerificatorOrAdmin && (
+                            <div className="p-3.5 sm:p-4 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-950/20 space-y-2">
+                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                        <Label htmlFor="bulkCustomDateTime" className="text-xs sm:text-sm font-semibold text-amber-950 dark:text-amber-100">
+                                            Waktu Upload & Inspeksi (Khusus Verifikator)
+                                        </Label>
+                                    </div>
+                                    <span className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 px-2 py-0.5 rounded-full font-medium">
+                                        Upload Galeri & Tanggal Kustom Aktif
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    Jika foto diunggah manual dari galeri ponsel/perangkat, Anda dapat menyesuaikan tanggal dan jam pengambilan foto di bawah ini.
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap pt-1">
+                                    <Input
+                                        id="bulkCustomDateTime"
+                                        type="datetime-local"
+                                        value={customDateTime}
+                                        onChange={(e) => setCustomDateTime(e.target.value)}
+                                        className="text-xs sm:text-sm max-w-xs bg-background"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCustomDateTime(toLocalDatetimeString(new Date()))}
+                                        className="text-xs h-9"
+                                    >
+                                        Set Waktu Sekarang
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="pt-4 border-t border-border">
                             <h3 className="font-semibold mb-4 flex items-center gap-2">
                                 <Camera className="w-5 h-5" />
@@ -319,17 +398,17 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
 
                                     <div className="space-y-3">
                                         <PhotoUpload
-                                            label="Foto Slicing"
+                                            label="Foto Perforasi"
                                             photoType="slicing"
                                             photo={formData.photos.slicing || null}
                                             onCapture={handlePhotoCapture}
                                         />
                                         <div>
-                                            <Label htmlFor="slicingDescription">Deskripsi Slicing</Label>
+                                            <Label htmlFor="slicingDescription">Deskripsi Perforasi</Label>
                                             <Textarea
                                                 id="slicingDescription"
                                                 name="slicingDescription"
-                                                placeholder="Deskripsikan kondisi slicing..."
+                                                placeholder="Deskripsikan kondisi perforasi..."
                                                 value={formData.slicingDescription}
                                                 onChange={handleInputChange}
                                                 className="mt-2 min-h-20"
@@ -339,6 +418,24 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                 </div>
                             </div>
                         )}
+
+                        {/* Additional Documentation Photos */}
+                        <div className="pt-4 border-t border-border">
+                            <h3 className="font-semibold mb-4 flex items-center gap-2">
+                                <ImagePlus className="w-5 h-5 text-indigo-500" />
+                                Dokumentasi Tambahan (Berbagi)
+                            </h3>
+                            <p className="text-sm text-muted-foreground mb-4">
+                                Foto bukti tambahan untuk SEMUA kontainer (opsional).
+                            </p>
+                            <PhotoUpload
+                                label="Foto Tambahan"
+                                photoType="additionalPhotos"
+                                photo={formData.photos.additionalPhotos || null}
+                                onCapture={handlePhotoCapture}
+                                maxPhotos={10}
+                            />
+                        </div>
 
                         <div className="pt-4 border-t border-border">
                             <h3 className="font-semibold mb-4 flex items-center gap-2">

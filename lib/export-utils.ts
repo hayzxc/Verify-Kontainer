@@ -35,6 +35,14 @@ function translateStatus(status: string) {
 }
 
 /**
+ * Translate stage code to human readable text
+ */
+function translateStage(stage?: string) {
+    if (stage === "akhir") return "Verifikasi Akhir"
+    return "Verifikasi Awal"
+}
+
+/**
  * Clean string for CSV cell (escapes double quotes)
  */
 function escapeCSVCell(val: string | number | null | undefined): string {
@@ -50,6 +58,7 @@ export function exportToCSV(inspections: Inspection[], filename = "Laporan_Inspe
     const headers = [
         "ID",
         "No. Kontainer",
+        "Tahap Verifikasi",
         "Nama Shipper",
         "Komoditi",
         "Lokasi Pemeriksaan",
@@ -74,6 +83,7 @@ export function exportToCSV(inspections: Inspection[], filename = "Laporan_Inspe
         return [
             escapeCSVCell(item.id),
             escapeCSVCell(item.containerNumber || "-"),
+            escapeCSVCell(translateStage(item.verificationStage)),
             escapeCSVCell(item.shipperName),
             escapeCSVCell(item.commodityType),
             escapeCSVCell(siteStr),
@@ -120,6 +130,7 @@ export function exportToExcel(inspections: Inspection[], filename = "Laporan_Ins
     const headers = [
         "ID",
         "No. Kontainer",
+        "Tahap Verifikasi",
         "Nama Shipper",
         "Komoditi",
         "Lokasi Pemeriksaan",
@@ -159,6 +170,7 @@ export function exportToExcel(inspections: Inspection[], filename = "Laporan_Ins
     <Row ss:Height="20">
       <Cell ss:StyleID="${styleId}"><Data ss:Type="Number">${item.id}</Data></Cell>
       <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${escapeXML(item.containerNumber || "-")}</Data></Cell>
+      <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${escapeXML(translateStage(item.verificationStage))}</Data></Cell>
       <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${escapeXML(item.shipperName)}</Data></Cell>
       <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${escapeXML(item.commodityType)}</Data></Cell>
       <Cell ss:StyleID="${styleId}"><Data ss:Type="String">${escapeXML(siteStr)}</Data></Cell>

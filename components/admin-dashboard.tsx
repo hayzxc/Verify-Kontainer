@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { LogOut, Users, FileText, Container, Clock, CheckCircle, AlertCircle, Eye, Trash2, TrendingUp, FileSpreadsheet } from "lucide-react"
+import { LogOut, Users, FileText, Container, Clock, CheckCircle, AlertCircle, Eye, Trash2, TrendingUp, FileSpreadsheet, Loader2 } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { InspectionFilters, type FilterState } from "@/components/inspection-filters"
@@ -48,9 +48,10 @@ interface UserData {
 export function AdminDashboard({ user }: { user: User }) {
   const [inspections, setInspections] = useState<Inspection[]>([])
   const [users, setUsers] = useState<UserData[]>([])
-  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null)
+  const [previewInspections, setPreviewInspections] = useState<Inspection[]>([])
   const [documentSelection, setDocumentSelection] = useState<Inspection[]>([])
   const [showDocumentPreview, setShowDocumentPreview] = useState(false)
+  const [isLoadingDoc, setIsLoadingDoc] = useState(false)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [reviewingInspection, setReviewingInspection] = useState<Inspection | null>(null)
   const [adminNotes, setAdminNotes] = useState("")
@@ -167,15 +168,40 @@ export function AdminDashboard({ user }: { user: User }) {
         }),
       })
 
-      if (!res.ok) throw new Error("Failed to save")
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null)
+        const errorMsg = errData?.error?.message || errData?.message || `Gagal menyimpan data (Status ${res.status}). Silakan coba lagi.`
+        throw new Error(errorMsg)
+      }
 
-      const savedInspection = await res.json()
-      setInspections((prev) => [savedInspection, ...prev])
+      const resJson = await res.json()
+      const savedInspection: Inspection = resJson.data || resJson
+      setInspections((prev) => [savedInspection, ...prev.filter((i) => i.id !== savedInspection.id)])
       alert("Inspection saved successfully!")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving inspection:", error)
-      alert("Gagal menyimpan data. Silakan coba lagi.")
+      alert(error.message || "Gagal menyimpan data. Silakan coba lagi.")
+      throw error
     }
+  }
+
+  // Handle viewing a single inspection document
+  const handleViewSingle = async (inspection: Inspection) => {
+    setIsLoadingDoc(true)
+    try {
+      const res = await fetch(`/api/inspections/${inspection.id}`, { credentials: "include" })
+      if (res.ok) {
+        const fullData = await res.json()
+        setPreviewInspections([fullData])
+      } else {
+        setPreviewInspections([inspection])
+      }
+    } catch {
+      setPreviewInspections([inspection])
+    } finally {
+      setIsLoadingDoc(false)
+    }
+    setShowDocumentPreview(true)
   }
 
   // Handle selection from InspectionForm (InspectionData)
@@ -186,9 +212,34 @@ export function AdminDashboard({ user }: { user: User }) {
       id: 0, // Placeholder
       createdBy: user.name,
       createdAt: new Date().toISOString(),
-      status: "approved"
+      status: "approved",
     }
-    setSelectedInspection(tempInspection)
+    setPreviewInspections([tempInspection])
+    setShowDocumentPreview(true)
+  }
+
+  // Handle viewing all checked inspections from floating bar
+  const handleViewSelectedDocuments = async () => {
+    if (documentSelection.length === 0) return
+    setIsLoadingDoc(true)
+    try {
+      const fetches = documentSelection.map(async (item) => {
+        try {
+          const res = await fetch(`/api/inspections/${item.id}`, { credentials: "include" })
+          if (res.ok) return (await res.json()) as Inspection
+        } catch {
+          // fallback
+        }
+        return item
+      })
+      const fullList = await Promise.all(fetches)
+      setPreviewInspections(fullList)
+    } catch {
+      setPreviewInspections(documentSelection)
+    } finally {
+      setIsLoadingDoc(false)
+    }
+    setShowDocumentPreview(true)
   }
 
   const toggleDocumentSelection = (inspection: Inspection) => {
@@ -302,6 +353,21 @@ export function AdminDashboard({ user }: { user: User }) {
       default:
         return <Badge variant="secondary">Unknown</Badge>
     }
+  }
+
+  const getStageBadge = (stage?: string) => {
+    if (stage === "akhir") {
+      return (
+        <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-xs">
+          Verifikasi Akhir
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 font-semibold text-xs">
+        Verifikasi Awal
+      </Badge>
+    )
   }
 
   const totalInspections = inspections.length
@@ -469,8 +535,15 @@ export function AdminDashboard({ user }: { user: User }) {
                                 />
                                 <h3 className="font-semibold text-base sm:text-lg">{inspection.shipperName}</h3>
                                 {getStatusBadge(inspection.status)}
+                                {getStageBadge(inspection.verificationStage)}
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-muted-foreground mb-2">
+                                <p>
+                                  Tahap:{" "}
+                                  <span className="font-semibold text-foreground">
+                                    {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                                  </span>
+                                </p>
                                 <p>
                                   Komoditi:{" "}
                                   <span className="font-medium text-foreground">{inspection.commodityType}</span>
@@ -517,7 +590,13 @@ export function AdminDashboard({ user }: { user: User }) {
                               )}
                             </div>
                             <div className="flex items-center gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-border justify-end w-full sm:w-auto">
-                              <Button variant="outline" size="sm" onClick={() => setSelectedInspection(inspection)} className="text-xs sm:text-sm">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isLoadingDoc}
+                                onClick={() => handleViewSingle(inspection)}
+                                className="text-xs sm:text-sm"
+                              >
                                 <Eye className="h-3.5 w-3.5 mr-1" />
                                 Lihat
                               </Button>
@@ -598,15 +677,23 @@ export function AdminDashboard({ user }: { user: User }) {
                                 />
                                 <h3 className="font-semibold text-base sm:text-lg">{inspection.shipperName}</h3>
                                 {getStatusBadge(inspection.status)}
+                                {getStageBadge(inspection.verificationStage)}
                               </div>
                               <p className="text-xs sm:text-sm text-muted-foreground">
-                                {inspection.commodityType}
+                                <span className="font-semibold text-foreground">{inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</span> · No. {inspection.containerNumber || "-"} · {inspection.commodityType}
                                 {inspection.inspectionLocationName ? ` · ${inspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} (${inspection.inspectionLocationName})` : ""} · Oleh: {inspection.createdBy} ·{" "}
                                 {new Date(inspection.createdAt).toLocaleString("id-ID")}
                               </p>
                             </div>
                             <div className="flex items-center gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-border justify-end w-full sm:w-auto">
-                              <Button variant="outline" size="sm" onClick={() => setSelectedInspection(inspection)} className="text-xs sm:text-sm">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isLoadingDoc}
+                                onClick={() => handleViewSingle(inspection)}
+                                className="text-xs sm:text-sm"
+                              >
+                                <Eye className="h-3.5 w-3.5 mr-1" />
                                 Lihat
                               </Button>
                               {inspection.status !== "approved" && (
@@ -649,12 +736,18 @@ export function AdminDashboard({ user }: { user: User }) {
               <div className="space-y-4">
                 <div className="bg-muted/60 p-4 rounded-lg border border-border">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-base">{reviewingInspection.shipperName}</h4>
+                    <div>
+                      <h4 className="font-semibold text-base">{reviewingInspection.shipperName}</h4>
+                      <div className="mt-1">
+                        {getStageBadge(reviewingInspection.verificationStage)}
+                      </div>
+                    </div>
                     <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
                       No. {reviewingInspection.containerNumber || "-"}
                     </span>
                   </div>
                   <div className="text-sm space-y-1 text-muted-foreground">
+                    <p>Tahap Verifikasi: <span className="font-bold text-foreground">{reviewingInspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</span></p>
                     <p>Komoditi: <span className="font-medium text-foreground">{reviewingInspection.commodityType}</span></p>
                     {reviewingInspection.inspectionLocationName && (
                       <p>Lokasi Pemeriksaan: <span className="font-medium text-foreground">{reviewingInspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} - {reviewingInspection.inspectionLocationName}</span></p>
@@ -672,27 +765,32 @@ export function AdminDashboard({ user }: { user: User }) {
                       📷 Verifikasi Foto Bukti Kontainer
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-2 bg-muted/40 rounded-lg border border-border">
-                      {Object.entries(reviewingInspection.photos).map(([key, url]) => {
-                        if (!url) return null
+                      {Object.entries(reviewingInspection.photos).flatMap(([key, value]) => {
+                        if (!value) return []
                         const labels: Record<string, string> = {
-                          shipper: "Foto Packing Tag",
-                          containerNumber: "No. Kontainer Plate",
+                          shipper: "Foto Packing",
+                          containerNumber: "Foto Container",
                           commodity: "Foto Komoditi",
                           ispm: "Stempel ISPM",
                           stacking: "Foto Stacking",
-                          slicing: "Foto Slicing / Test",
+                          slicing: "Foto Perforasi",
+                          additionalPhotos: "Foto Tambahan",
                         }
-                        return (
-                          <div key={key} className="border rounded-md overflow-hidden bg-background shadow-xs">
+                        // Normalize: handle both string and string[] values
+                        const urls = Array.isArray(value) ? value.filter(Boolean) : typeof value === "string" ? [value] : []
+                        return urls.map((url, idx) => (
+                          <div key={`${key}-${idx}`} className="border rounded-md overflow-hidden bg-background shadow-xs">
                             <a href={url} target="_blank" rel="noreferrer" title="Klik untuk lihat foto penuh">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={url} alt={labels[key] || key} className="w-full h-24 object-cover hover:opacity-90 transition-opacity" />
                             </a>
                             <div className="p-1.5 bg-background text-center border-t border-border">
-                              <p className="text-[11px] font-medium truncate text-foreground">{labels[key] || key}</p>
+                              <p className="text-[11px] font-medium truncate text-foreground">
+                                {labels[key] || key}{urls.length > 1 ? ` (${idx + 1})` : ""}
+                              </p>
                             </div>
                           </div>
-                        )
+                        ))
                       })}
                     </div>
                   </div>
@@ -726,12 +824,16 @@ export function AdminDashboard({ user }: { user: User }) {
         <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
           <DialogContent className="sm:max-w-[908px] max-w-[908px] w-full max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Pratinjau Dokumen ({documentSelection.length} item{documentSelection.length > 1 ? 's' : ''})</DialogTitle>
+              <DialogTitle>
+                Pratinjau Dokumen ({previewInspections.length} item{previewInspections.length > 1 ? "s" : ""})
+              </DialogTitle>
               <DialogDescription>
                 Tinjau dan cetak dokumen verifikasi untuk inspeksi yang dipilih.
               </DialogDescription>
             </DialogHeader>
-            <VerificationDocument inspections={documentSelection} />
+            {previewInspections.length > 0 && (
+              <VerificationDocument inspections={previewInspections} />
+            )}
           </DialogContent>
         </Dialog>
 
@@ -748,10 +850,15 @@ export function AdminDashboard({ user }: { user: User }) {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setShowDocumentPreview(true)}
+              disabled={isLoadingDoc}
+              onClick={handleViewSelectedDocuments}
               className="ml-2"
             >
-              <FileText className="h-4 w-4 mr-2" />
+              {isLoadingDoc ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4 mr-2" />
+              )}
               Lihat Dokumen
             </Button>
           </div>

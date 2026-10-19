@@ -72,11 +72,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             if (body.containerNumber !== undefined) updatePayload.containerNumber = body.containerNumber
             if (body.inspectionLocationType !== undefined) updatePayload.inspectionLocationType = body.inspectionLocationType
             if (body.inspectionLocationName !== undefined) updatePayload.inspectionLocationName = body.inspectionLocationName
+            if (body.verificationStage !== undefined) updatePayload.verificationStage = body.verificationStage
             if (body.notes !== undefined) updatePayload.notes = body.notes
             if (body.stackingDescription !== undefined) updatePayload.stackingDescription = body.stackingDescription
             if (body.slicingDescription !== undefined) updatePayload.moistureDescription = body.slicingDescription
             if (body.photos) updatePayload.photos = body.photos
             if (body.location) updatePayload.location = body.location
+            if (body.createdAt && (session.role === "verificator" || session.role === "admin")) {
+                updatePayload.createdAt = new Date(body.createdAt)
+            }
 
             const updatedInspection = await db.inspection.update({
                 where: { id },

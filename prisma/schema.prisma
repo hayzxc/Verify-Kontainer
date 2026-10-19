@@ -36,6 +36,7 @@ model Inspection {
   containerNumber     String?
   inspectionLocationType String?
   inspectionLocationName String?
+  verificationStage   String?        @default("awal")
   notifications       Notification[]
 
   @@index([status])

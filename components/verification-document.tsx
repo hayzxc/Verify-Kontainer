@@ -141,6 +141,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         <head>
           <title>Print Dokumen Verifikasi Container</title>
           <style>
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             body { font-family: system-ui, -apple-system, sans-serif; margin: 10px; color: #000; }
             .header-title { font-size: 1.25rem; font-weight: 800; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; border: 2px solid #000; }
@@ -265,10 +266,21 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                   {/* DISTINCT CONTAINER HEADER BANNER */}
                   <div className="bg-gray-900 text-white px-4 py-2.5 flex items-center justify-between border-b-4 border-black">
                     <div>
-                      <span className="font-extrabold text-sm text-yellow-400 font-mono tracking-wide uppercase">
-                        KONTAINER #{insIdx + 1}: {inspection.containerNumber || "TANPA NOMOR"}
-                      </span>
-                      <span className="ml-3 text-xs text-gray-200">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-sm text-yellow-400 font-mono tracking-wide uppercase">
+                          KONTAINER #{insIdx + 1}: {inspection.containerNumber || "TANPA NOMOR"}
+                        </span>
+                        {inspection.verificationStage === "akhir" ? (
+                          <span className="px-2 py-0.5 text-[11px] font-black uppercase rounded bg-emerald-600 text-white border border-emerald-400 tracking-wider">
+                            VERIFIKASI AKHIR
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[11px] font-black uppercase rounded bg-blue-600 text-white border border-blue-400 tracking-wider">
+                            VERIFIKASI AWAL
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-200 mt-1 block">
                         • Shipper: <strong className="text-white">{inspection.shipperName}</strong> • Komoditi: <strong className="text-white capitalize">{inspection.commodityType}</strong>
                         {inspection.inspectionLocationName && (
                           <> • Lokasi: <strong className="text-yellow-300">{inspection.inspectionLocationType === 'depo' ? 'Depo' : 'Pabrik'} - {inspection.inspectionLocationName}</strong></>
@@ -301,7 +313,17 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             Tidak Ada Bukti Foto
                           </td>
                           <td className="border-2 border-black p-3 align-top">
-                            <p className="font-bold text-sm text-black">{inspection.shipperName}</p>
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-bold text-sm text-black">{inspection.shipperName}</p>
+                              <span className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded ${
+                                inspection.verificationStage === "akhir"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : "bg-blue-100 text-blue-800 border border-blue-300"
+                              }`}>
+                                {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-700">Tahap: {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</p>
                             <p className="text-xs text-gray-700">No. Container: {inspection.containerNumber || "-"}</p>
                             <p className="text-xs text-gray-700">Komoditi: {inspection.commodityType}</p>
                           </td>
@@ -323,7 +345,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={row.src!}
+                                src={typeof row.src === "string" ? row.src : Array.isArray(row.src) ? (row.src as string[])[0] : ""}
                                 alt={row.label}
                                 className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black"
                               />
@@ -343,15 +365,27 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                                   <p className="whitespace-pre-wrap">{inspection.notes}</p>
                                 </div>
                               )}
-                              <div className="mt-3 pt-2 border-t border-gray-300 text-[11px]">
-                                <span className="font-bold block text-[10px] uppercase text-gray-600">Hasil Verifikasi:</span>
-                                {inspection.status === "approved" ? (
-                                  <span className="font-bold text-green-700">✓ Disetujui (Terverifikasi)</span>
-                                ) : inspection.status === "needs_correction" ? (
-                                  <span className="font-bold text-red-700">⚠️ Minta Perbaikan</span>
-                                ) : (
-                                  <span className="font-bold text-yellow-700">🕒 Menunggu Tinjauan</span>
-                                )}
+                              <div className="mt-3 pt-2 border-t border-gray-300 text-[11px] space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-[10px] uppercase text-gray-600">Tahap Verifikasi:</span>
+                                  <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded ${
+                                    inspection.verificationStage === "akhir"
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                      : "bg-blue-100 text-blue-800 border border-blue-300"
+                                  }`}>
+                                    {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="font-bold block text-[10px] uppercase text-gray-600">Hasil Verifikasi:</span>
+                                  {inspection.status === "approved" ? (
+                                    <span className="font-bold text-green-700">✓ Disetujui (Terverifikasi)</span>
+                                  ) : inspection.status === "needs_correction" ? (
+                                    <span className="font-bold text-red-700">⚠️ Minta Perbaikan</span>
+                                  ) : (
+                                    <span className="font-bold text-yellow-700">🕒 Menunggu Tinjauan</span>
+                                  )}
+                                </div>
                               </div>
                             </td>
 

@@ -15,10 +15,12 @@ export const InspectionSchema = z.object({
     containerNumber: z.string().min(1, "Container number is required"),
     inspectionLocationType: z.string().optional(),
     inspectionLocationName: z.string().optional(),
+    verificationStage: z.string().optional(),
     notes: z.string().optional(),
     stackingDescription: z.string().optional(),
     slicingDescription: z.string().optional(),
     createdBy: z.string().optional(), // Can be inferred from session, but kept for flexibility if needed
+    createdAt: z.string().optional(), // Custom inspection/upload date for verificator/admin
     location: z.any().optional(), // Using any for now as location structure can be complex, can be refined later
     photos: z.record(z.string(), z.any()).optional(), // Loose validation for photos map
 });

@@ -6,8 +6,8 @@
 
 export async function compressImageBase64(
   base64DataUrl: string,
-  maxDimension = 1920,
-  quality = 0.85
+  maxDimension = 1280,
+  quality = 0.75
 ): Promise<string> {
   return new Promise((resolve) => {
     // If invalid or empty data URL, return as is

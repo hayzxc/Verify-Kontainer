@@ -43,7 +43,7 @@ export function InspectionHistory({ inspections, onSelect }: InspectionHistoryPr
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-lg">{inspection.shipperName}</h3>
-                  <Badge variant="outline">{inspection.photos.containerNumber || "No Container"}</Badge>
+                  <Badge variant="outline">{inspection.containerNumber || "No Container"}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{inspection.timestamp}</p>
                 <div className="flex gap-2 flex-wrap">

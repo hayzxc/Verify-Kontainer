@@ -92,6 +92,7 @@ export async function GET(req: Request) {
                     containerNumber: true,
                     inspectionLocationType: true,
                     inspectionLocationName: true,
+                    verificationStage: true,
                     status: true,
                     createdAt: true,
                     location: true,
@@ -142,13 +143,18 @@ export async function POST(req: Request) {
             containerNumber,
             inspectionLocationType,
             inspectionLocationName,
+            verificationStage,
             photos,
             location,
             notes,
             stackingDescription,
             slicingDescription,
             createdBy,
+            createdAt,
         } = result.data
+
+        const isPrivileged = session.role === "verificator" || session.role === "admin"
+        const customDate = isPrivileged && createdAt ? new Date(createdAt) : undefined
 
         const inspection = await db.inspection.create({
             data: {
@@ -157,11 +163,13 @@ export async function POST(req: Request) {
                 containerNumber,
                 inspectionLocationType,
                 inspectionLocationName,
+                verificationStage: verificationStage || "awal",
                 notes,
                 stackingDescription,
                 moistureDescription: slicingDescription, // mapped: frontend uses slicingDescription, DB column is moistureDescription
                 status: "pending",
                 createdBy: createdBy || "Unknown User",
+                createdAt: customDate, // if undefined, uses default(now())
                 location: location || {},
                 photos: {
                     ...photos,

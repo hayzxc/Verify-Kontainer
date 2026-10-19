@@ -14,6 +14,8 @@ const BulkInspectionSchema = z.object({
     stackingDescription: z.string().optional(),
     slicingDescription: z.string().optional(),
     createdBy: z.string().optional(),
+    createdAt: z.string().optional(),
+    verificationStage: z.string().optional(),
     location: z.any().optional(),
     photos: z.record(z.string(), z.any()).optional(),
 })
@@ -46,7 +48,12 @@ export async function POST(req: Request) {
             stackingDescription,
             slicingDescription,
             createdBy,
+            createdAt,
+            verificationStage,
         } = result.data
+
+        const isPrivileged = session.role === "verificator" || session.role === "admin"
+        const customDate = isPrivileged && createdAt ? new Date(createdAt) : undefined
 
         // Use $transaction with individual creates to get IDs for notifications
         const inspections = await db.$transaction(
@@ -56,11 +63,13 @@ export async function POST(req: Request) {
                         shipperName,
                         commodityType,
                         containerNumber: num,
+                        verificationStage: verificationStage || "awal",
                         notes,
                         stackingDescription,
                         moistureDescription: slicingDescription,
                         status: "pending",
                         createdBy: createdBy || "Unknown User",
+                        createdAt: customDate,
                         location: location || {},
                         photos: {
                             ...photos,
