@@ -148,6 +148,21 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
       return
     }
 
+    // 3. Prevent submission if any photo failed to upload and remains in base64 format
+    const hasUnuploadedPhotos = Object.values(formData.photos || {}).some((val) => {
+      if (!val) return false
+      if (typeof val === "string") return val.startsWith("data:")
+      if (Array.isArray(val)) return val.some((v) => typeof v === "string" && v.startsWith("data:"))
+      return false
+    })
+
+    if (hasUnuploadedPhotos) {
+      alert(
+        "Terdapat foto yang belum berhasil diunggah ke cloud storage (ditandai tombol 'Retry'). Silakan klik tombol 'Retry' pada foto tersebut terlebih dahulu sebelum mengirim inspeksi."
+      )
+      return
+    }
+
     setIsSubmitting(true)
 
     const targetDate = isVerificatorOrAdmin && customDateTime ? new Date(customDateTime) : new Date()

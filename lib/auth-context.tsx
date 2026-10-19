@@ -28,10 +28,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session (in a real app, verify token with backend)
+    // Check for existing session
     ;(async () => {
       try {
-        const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" })
+        const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+        const headers: Record<string, string> = {}
+        if (token) headers["Authorization"] = `Bearer ${token}`
+
+        const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include", headers })
         if (res.ok) {
           const userData = await res.json()
           setUser(userData)
@@ -39,10 +43,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUser(null)
           localStorage.removeItem("currentUser")
+          localStorage.removeItem("sessionToken")
         }
       } catch (e) {
         setUser(null)
         localStorage.removeItem("currentUser")
+        localStorage.removeItem("sessionToken")
       } finally {
         setLoading(false)
       }
@@ -73,6 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData = await res.json()
       setUser(userData)
       localStorage.setItem("currentUser", JSON.stringify(userData))
+      if (userData.token) {
+        localStorage.setItem("sessionToken", userData.token)
+      }
     } catch (error) {
       console.error("Login error:", error)
       throw error
@@ -103,6 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userData = await res.json()
       setUser(userData)
       localStorage.setItem("currentUser", JSON.stringify(userData))
+      if (userData.token) {
+        localStorage.setItem("sessionToken", userData.token)
+      }
     } catch (error) {
       console.error("Signup error:", error)
       throw error
@@ -117,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {})
     setUser(null)
     localStorage.removeItem("currentUser")
+    localStorage.removeItem("sessionToken")
   }
 
   return (

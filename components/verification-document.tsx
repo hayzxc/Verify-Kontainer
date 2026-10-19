@@ -141,13 +141,13 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         <head>
           <title>Print Dokumen Verifikasi Container</title>
           <style>
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
             body { font-family: system-ui, -apple-system, sans-serif; margin: 10px; color: #000; }
             .header-title { font-size: 1.25rem; font-weight: 800; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; border: 2px solid #000; }
             th { background-color: #9ca3af; color: #000000; border: 2px solid #000000; padding: 8px; font-weight: 800; text-align: center; font-size: 12px; }
             td { border: 2px solid #000000; padding: 8px; vertical-align: top; }
-            img { width: 100%; height: 210px; object-fit: cover; display: block; border: 1px solid #000; }
+            img { width: 100%; height: 210px; object-fit: cover; display: block; border: 2px solid #000; }
             .photo-row { page-break-inside: avoid; }
             p { margin: 0 0 4px 0; }
           </style>
@@ -219,44 +219,72 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               const lat = inspection.location?.latitude
               const lng = inspection.location?.longitude
 
-              const photoRows = [
+              const getPhotoUrls = (val: any): string[] => {
+                if (!val) return []
+                if (Array.isArray(val)) {
+                  return val.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+                }
+                if (typeof val === "string" && val.trim().length > 0) {
+                  return [val]
+                }
+                return []
+              }
+
+              const categoryConfigs = [
                 {
                   type: "containerNumber",
                   label: "Foto Container",
-                  src: inspection.photos?.containerNumber,
+                  photos: getPhotoUrls(inspection.photos?.containerNumber),
                   info: `Nomor kontainer beserta komoditas (pintu kiri dibuka agar terlihat komoditasnya)\n\nShipper: ${inspection.shipperName}\nNo. Container: ${inspection.containerNumber || "-"}\nKomoditi: ${inspection.commodityType}`,
                 },
                 {
                   type: "commodity",
                   label: "Foto Komoditi",
-                  src: inspection.photos?.commodity,
+                  photos: getPhotoUrls(inspection.photos?.commodity),
                   info: `Foto komoditas (${inspection.commodityType}) dalam kontainer\n\nShipper: ${inspection.shipperName}\nNo. Container: ${inspection.containerNumber || "-"}`,
                 },
                 {
                   type: "shipper",
                   label: "Foto Packing Tag",
-                  src: inspection.photos?.shipper,
+                  photos: getPhotoUrls(inspection.photos?.shipper),
                   info: `Foto packing tag & bukti pengirim (${inspection.shipperName})`,
                 },
                 {
                   type: "ispm",
                   label: "Foto Stempel ISPM",
-                  src: inspection.photos?.ispm,
+                  photos: getPhotoUrls(inspection.photos?.ispm),
                   info: "Stempel ISPM 15 pada kemasan kayu / palet perlakuan",
                 },
                 {
                   type: "stacking",
                   label: "Foto Stacking",
-                  src: inspection.photos?.stacking,
+                  photos: getPhotoUrls(inspection.photos?.stacking),
                   info: inspection.stackingDescription || "Kondisi penataan dan penyusunan barang (stacking) dalam kontainer",
                 },
                 {
                   type: "slicing",
                   label: "Foto Slicing / Monitoring",
-                  src: inspection.photos?.slicing,
+                  photos: getPhotoUrls(inspection.photos?.slicing),
                   info: inspection.moistureDescription || "Peralatan monitoring memperlihatkan alat, kipas dan selang monitoring",
                 },
-              ].filter((item) => Boolean(item.src))
+                {
+                  type: "additionalPhotos",
+                  label: "Foto Tambahan",
+                  photos: getPhotoUrls(inspection.photos?.additionalPhotos),
+                  info: "Foto dokumentasi bukti tambahan pemeriksaan kontainer",
+                },
+              ]
+
+              // Setiap foto dipertahankan pada ukuran asli penuh (setiap foto mendapat baris tabel tersendiri)
+              const photoRows = categoryConfigs.flatMap((cat) => {
+                if (cat.photos.length === 0) return []
+                return cat.photos.map((src, idx) => ({
+                  type: cat.type,
+                  label: cat.photos.length > 1 ? `${cat.label} (Foto ${idx + 1}/${cat.photos.length})` : cat.label,
+                  src,
+                  info: cat.info,
+                }))
+              })
 
               return (
                 <div
@@ -340,18 +368,22 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                         </tr>
                       ) : (
                         photoRows.map((row, rIdx) => (
-                          <tr key={`${insIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid">
-                            {/* PHOTOS COLUMN (LEFT) */}
+                          <tr key={`${insIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid photo-row">
+                            {/* PHOTOS COLUMN (LEFT) - UKURAN PENUH UNTUK KUALITAS INSPEKSI */}
                             <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={typeof row.src === "string" ? row.src : Array.isArray(row.src) ? (row.src as string[])[0] : ""}
-                                alt={row.label}
-                                className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black"
-                              />
-                              <span className="block text-[10px] font-bold text-black uppercase mt-1">
-                                {row.label}
-                              </span>
+                              <div className="w-full">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={row.src}
+                                  alt={row.label}
+                                  className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black cursor-pointer hover:opacity-95 transition-opacity"
+                                  onClick={() => window.open(row.src, "_blank")}
+                                  title="Klik untuk membuka foto ukuran/resolusi penuh"
+                                />
+                                <span className="block text-[10px] font-bold text-black uppercase mt-1">
+                                  {row.label}
+                                </span>
+                              </div>
                             </td>
 
                             {/* INFORMATION COLUMN (MIDDLE) */}
@@ -392,7 +424,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
                             <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
                               {lat && lng ? (
-                                <div className="space-y-2">
+                                <div className="map-container space-y-2">
                                   <StaticMap
                                     lat={lat}
                                     lng={lng}

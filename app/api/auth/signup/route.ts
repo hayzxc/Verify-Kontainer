@@ -12,15 +12,7 @@ export async function POST(req: Request) {
         const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.auth, "auth-signup")
         if (rateLimitResponse) return rateLimitResponse
 
-        // Only admins can create new users
         const session = await verifySession()
-        if (!session) {
-            return apiError("Unauthorized", 401)
-        }
-        if (session.role !== "admin") {
-            return apiError("Forbidden", 403)
-        }
-
         const body = await req.json()
 
         // Validate input using Zod
@@ -31,6 +23,18 @@ export async function POST(req: Request) {
         }
 
         const { email, password, name, role } = result.data
+        const cleanEmail = email.trim().toLowerCase()
+        const cleanName = name.trim()
+
+        // Only admins can create admin or verificator accounts
+        if (role !== "user") {
+            if (!session) {
+                return apiError("Unauthorized", 401)
+            }
+            if (session.role !== "admin") {
+                return apiError("Forbidden: Hanya admin yang dapat membuat akun ini", 403)
+            }
+        }
 
         // Single Admin Enforcement: Only 1 admin account allowed in system
         if (role === "admin") {
@@ -42,8 +46,13 @@ export async function POST(req: Request) {
             }
         }
 
-        const existingUser = await db.user.findUnique({
-            where: { email },
+        const existingUser = await db.user.findFirst({
+            where: {
+                email: {
+                    equals: cleanEmail,
+                    mode: "insensitive",
+                },
+            },
         })
 
         if (existingUser) {
@@ -53,10 +62,25 @@ export async function POST(req: Request) {
         const hashedPassword = await bcrypt.hash(password, 12)
 
         const user = await db.user.create({
-            data: { email, name, password: hashedPassword, role },
+            data: { email: cleanEmail, name: cleanName, password: hashedPassword, role },
         })
 
         const { password: _, ...userWithoutPassword } = user
+
+        let token: string | undefined
+        // If self-registration by public user (no session), log them in directly
+        if (!session) {
+            const { signSession, SESSION_COOKIE_OPTIONS } = await import("@/lib/auth")
+            token = await signSession({
+                id: user.id,
+                role: user.role,
+                email: user.email,
+                name: user.name,
+            })
+            const res = NextResponse.json({ ...userWithoutPassword, token }, { status: 201 })
+            res.cookies.set("session", token, SESSION_COOKIE_OPTIONS)
+            return res
+        }
 
         return NextResponse.json(userWithoutPassword, { status: 201 })
     } catch (error) {

@@ -55,8 +55,13 @@ export function VerificatorDashboard({ user }: { user: User }) {
       if (f.dateFrom) params.set("dateFrom", f.dateFrom)
       if (f.dateTo) params.set("dateTo", f.dateTo)
 
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       const res = await fetch(`/api/inspections?${params.toString()}`, {
         credentials: "include",
+        headers,
       })
       if (res.status === 401) {
         logout()
@@ -94,12 +99,16 @@ export function VerificatorDashboard({ user }: { user: User }) {
 
   const handleSaveInspection = async (newInspection: InspectionData) => {
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       if (editingInspectionId) {
         // Resubmit updated inspection for admin re-verification
         const res = await fetch(`/api/inspections/${editingInspectionId}`, {
           method: "PATCH",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(newInspection),
         })
 
@@ -120,7 +129,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
         const res = await fetch("/api/inspections", {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             ...newInspection,
             createdBy: user.name,

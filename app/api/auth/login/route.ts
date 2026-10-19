@@ -18,9 +18,14 @@ export async function POST(req: Request) {
             return apiError("Missing credentials", 400)
         }
 
-        const user = await db.user.findUnique({
+        const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : ""
+
+        const user = await db.user.findFirst({
             where: {
-                email,
+                email: {
+                    equals: cleanEmail,
+                    mode: "insensitive",
+                },
             },
         })
 
@@ -45,7 +50,7 @@ export async function POST(req: Request) {
 
         const { password: _, ...userWithoutPassword } = user
 
-        const res = NextResponse.json(userWithoutPassword)
+        const res = NextResponse.json({ ...userWithoutPassword, token })
         res.cookies.set("session", token, SESSION_COOKIE_OPTIONS)
         return res
     } catch (error) {

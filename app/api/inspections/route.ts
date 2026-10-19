@@ -9,7 +9,7 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 export async function GET(req: Request) {
     try {
-        const session = await verifySession()
+        const session = await verifySession(req)
         if (!session) {
             return apiError("Unauthorized", 401)
         }
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
         const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.submission, "inspection-post")
         if (rateLimitResponse) return rateLimitResponse
 
-        const session = await verifySession()
+        const session = await verifySession(req)
         if (!session) {
             return apiError("Unauthorized", 401)
         }

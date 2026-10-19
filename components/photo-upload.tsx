@@ -108,16 +108,27 @@ export function PhotoUpload({
   const uploadToCloud = useCallback(
     async (base64: string): Promise<string | null> => {
       try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+        const headers: Record<string, string> = { "Content-Type": "application/json" }
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`
+        }
+
         const res = await fetch("/api/upload", {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             base64,
             filename: `inspection-${photoType}-${Date.now()}.jpg`,
           }),
         })
-        if (!res.ok) throw new Error("Upload failed")
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null)
+          const errorMsg = errData?.error?.message || errData?.message || `HTTP ${res.status}`
+          console.error("[PhotoUpload] Server rejected upload:", errorMsg)
+          throw new Error(errorMsg)
+        }
         const data = await res.json()
         return data.data?.url ?? null
       } catch (err) {
