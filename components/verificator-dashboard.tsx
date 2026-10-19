@@ -668,10 +668,10 @@ export function VerificatorDashboard({ user }: { user: User }) {
         )}
 
         <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
-          <DialogContent className="sm:max-w-[908px] max-w-[908px] w-full max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Pratinjau Dokumen</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="max-w-[96vw] sm:max-w-[920px] w-full max-h-[94vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
+            <DialogHeader className="pr-6 pb-1">
+              <DialogTitle className="text-base sm:text-lg">Pratinjau Dokumen</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 {documentInspections.length > 1
                   ? `Dokumen verifikasi untuk ${documentInspections.length} kontainer`
                   : "Tinjau dan cetak dokumen verifikasi."}
