@@ -15,6 +15,7 @@ interface StaticMapProps {
     /** Canvas pixel height */
     height?: number
     className?: string
+    style?: React.CSSProperties
     alt?: string
 }
 
@@ -105,6 +106,7 @@ export function StaticMap({
     width = 800,
     height = 600,
     className,
+    style,
     alt = "Location Map",
 }: StaticMapProps) {
     const [src, setSrc] = useState<string | null>(null)
@@ -175,7 +177,7 @@ export function StaticMap({
         return (
             <div
                 className={className}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", ...style }}
             >
                 <span style={{ fontSize: 11, color: "#6b7280", fontStyle: "italic" }}>
                     Peta tidak tersedia ({lat.toFixed(6)}, {lng.toFixed(6)})
@@ -188,7 +190,7 @@ export function StaticMap({
         return (
             <div
                 className={className}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", ...style }}
             >
                 <span style={{ fontSize: 11, color: "#6b7280" }}>Memuat peta...</span>
             </div>
@@ -196,5 +198,5 @@ export function StaticMap({
     }
 
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} className={className} draggable={false} />
+    return <img src={src} alt={alt} className={className} style={style} crossOrigin="anonymous" draggable={false} />
 }

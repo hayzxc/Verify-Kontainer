@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   Download,
@@ -21,8 +20,10 @@ import { cn } from "@/lib/utils"
 
 export function VerificationDocument({ inspections }: { inspections: Inspection[] }) {
   const a4DocumentRef = useRef<HTMLDivElement>(null)
+  const exportContainerRef = useRef<HTMLDivElement>(null)
   const [viewMode, setViewMode] = useState<"mobile" | "a4">("mobile")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generatingProgress, setGeneratingProgress] = useState("")
   const [isEnriching, setIsEnriching] = useState(false)
   const [inspectionsWithAddress, setInspectionsWithAddress] = useState<Inspection[]>(inspections)
 
@@ -68,6 +69,10 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
     const enrichInspections = async () => {
       setIsEnriching(true)
       try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+        const authHeaders: Record<string, string> = {}
+        if (token) authHeaders["Authorization"] = `Bearer ${token}`
+
         const updatedInspections = await Promise.all(
           inspections.map(async (inspection) => {
             let currentInspection = { ...inspection }
@@ -77,6 +82,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               try {
                 const res = await fetch(`/api/inspections/${inspection.id}`, {
                   credentials: "include",
+                  headers: authHeaders,
                 })
                 if (res.ok) {
                   const fullData = await res.json()
@@ -126,63 +132,121 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
   const handlePrintPDF = async () => {
     setIsGenerating(true)
-    const prevMode = viewMode
+    setGeneratingProgress("Menyiapkan dokumen...")
 
     try {
-      // Temporarily switch to A4 view if not already, to ensure full official landscape capture
-      if (prevMode !== "a4") {
-        setViewMode("a4")
-        await new Promise((resolve) => setTimeout(resolve, 250))
+      const container = exportContainerRef.current
+      if (!container) {
+        throw new Error("Elemen dokumen untuk ekspor PDF tidak ditemukan.")
       }
 
-      const element = a4DocumentRef.current
-      if (!element) {
-        throw new Error("Elemen dokumen A4 tidak ditemukan")
-      }
+      // 1. Wait for all images in export container to load
+      setGeneratingProgress("Memuat foto...")
+      const images = Array.from(container.querySelectorAll("img"))
+      await Promise.all(
+        images.map((img) => {
+          if (img.complete && img.naturalWidth > 0) return Promise.resolve(true)
+          return new Promise((resolve) => {
+            const timer = setTimeout(() => resolve(true), 4000)
+            img.onload = () => {
+              clearTimeout(timer)
+              resolve(true)
+            }
+            img.onerror = () => {
+              clearTimeout(timer)
+              resolve(true)
+            }
+          })
+        })
+      )
 
-      const html2pdfModule = await import("html2pdf.js")
-      const html2pdf = html2pdfModule.default || html2pdfModule
+      await new Promise((resolve) => setTimeout(resolve, 150))
+
+      // 2. Dynamically import html2canvas-pro and jsPDF
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas-pro"),
+        import("jspdf"),
+      ])
 
       const dateStr = new Date().toISOString().split("T")[0]
-      const opt = {
-        margin: [5, 5, 5, 5],
-        filename: `Dokumen-Verifikasi-Container-${dateStr}.pdf`,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
-        jsPDF: { orientation: "landscape" as const, unit: "mm", format: "a4" },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      })
+
+      const pageWidthMm = 297
+      const pageHeightMm = 210
+      const marginMm = 6
+      const contentWidthMm = pageWidthMm - marginMm * 2 // 285mm
+      const maxContentHeightMm = pageHeightMm - marginMm * 2 // 198mm
+
+      const pageElements = Array.from(
+        container.querySelectorAll<HTMLElement>(".pdf-export-page")
+      )
+
+      if (pageElements.length === 0) {
+        throw new Error("Tidak ada data inspeksi yang dapat dicetak.")
       }
 
-      // @ts-ignore
-      await html2pdf().set(opt).from(element).save()
+      for (let i = 0; i < pageElements.length; i++) {
+        setGeneratingProgress(`Membuat halaman ${i + 1} dari ${pageElements.length}...`)
+        if (i > 0) {
+          pdf.addPage("a4", "landscape")
+        }
+
+        const pageEl = pageElements[i]
+        const canvas = await html2canvas(pageEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: "#ffffff",
+          logging: false,
+          x: 0,
+          y: 0,
+          scrollX: 0,
+          scrollY: 0,
+        })
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.96)
+        const renderedHeightMm = (canvas.height / canvas.width) * contentWidthMm
+        const finalHeightMm = Math.min(renderedHeightMm, maxContentHeightMm)
+
+        pdf.addImage(
+          imgData,
+          "JPEG",
+          marginMm,
+          marginMm,
+          contentWidthMm,
+          finalHeightMm,
+          undefined,
+          "FAST"
+        )
+      }
+
+      setGeneratingProgress("Mengunduh file PDF...")
+      const filename = `Dokumen-Verifikasi-Container-${dateStr}.pdf`
+      pdf.save(filename)
     } catch (error) {
       console.error("Error generating PDF:", error)
-      alert("Gagal membuat PDF. Silakan coba lagi.")
-    } finally {
-      if (prevMode !== "a4") {
-        setViewMode(prevMode)
+      const shouldFallback = confirm(
+        "Gagal mengunduh file PDF secara langsung. Apakah Anda ingin membuka jendela cetak untuk menyimpan sebagai PDF?"
+      )
+      if (shouldFallback) {
+        handlePrint()
       }
+    } finally {
       setIsGenerating(false)
+      setGeneratingProgress("")
     }
   }
 
   const handlePrint = async () => {
-    const prevMode = viewMode
-    let element = a4DocumentRef.current
-
-    if (!element) {
-      setViewMode("a4")
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      element = a4DocumentRef.current
-    }
-
+    const element = exportContainerRef.current || a4DocumentRef.current
     if (!element) return
 
     const printWindow = window.open("", "_blank")
-    if (!printWindow) {
-      if (prevMode !== "a4") setViewMode(prevMode)
-      return
-    }
+    if (!printWindow) return
 
     printWindow.document.write(`
       <html>
@@ -191,14 +255,13 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
           <style>
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
             @page { size: landscape; margin: 6mm; }
-            body { font-family: system-ui, -apple-system, sans-serif; margin: 10px; color: #000; }
-            .header-title { font-size: 1.25rem; font-weight: 800; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 10px; color: #000; background: #fff; }
+            .pdf-export-page { page-break-after: always; margin-bottom: 20px; }
+            .pdf-export-page:last-child { page-break-after: avoid; }
             table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; border: 2px solid #000; }
-            th { background-color: #9ca3af; color: #000000; border: 2px solid #000000; padding: 8px; font-weight: 800; text-align: center; font-size: 12px; }
+            th { background-color: #d1d5db; color: #000000; border: 2px solid #000000; padding: 8px; font-weight: 800; text-align: center; font-size: 12px; }
             td { border: 2px solid #000000; padding: 8px; vertical-align: top; word-break: break-word; }
-            img { width: 100%; height: 210px; object-fit: cover; display: block; border: 2px solid #000; }
-            .photo-row { page-break-inside: avoid; }
-            p { margin: 0 0 4px 0; }
+            img { max-width: 100%; object-fit: cover; display: block; }
           </style>
         </head>
         <body>
@@ -207,10 +270,6 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       </html>
     `)
     printWindow.document.close()
-
-    if (prevMode !== "a4") {
-      setViewMode(prevMode)
-    }
 
     const images = Array.from(printWindow.document.querySelectorAll("img"))
     if (images.length === 0) {
@@ -309,6 +368,29 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
   const isBusy = isEnriching || isGenerating
 
+  // Pre-calculate cleanly paginated chunks (2 rows per page) for high-quality, zero-cut PDF generation
+  const pagesData = inspectionsWithAddress.flatMap((inspection, insIdx) => {
+    const photoRows = getPhotoRows(inspection)
+    if (photoRows.length === 0) {
+      return [{
+        inspection,
+        insIdx,
+        rows: [] as ReturnType<typeof getPhotoRows>,
+        pageIdxInInspection: 0,
+        totalInspectionPages: 1,
+      }]
+    }
+    const chunkCount = Math.ceil(photoRows.length / 2)
+    return Array.from({ length: chunkCount }, (_, chunkIdx) => ({
+      inspection,
+      insIdx,
+      rows: photoRows.slice(chunkIdx * 2, chunkIdx * 2 + 2),
+      pageIdxInInspection: chunkIdx,
+      totalInspectionPages: chunkCount,
+    }))
+  })
+  const totalExportPages = pagesData.length
+
   return (
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Top Action Bar with View Toggle & Print/Export Buttons */}
@@ -353,9 +435,13 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
             <Printer className="w-3.5 h-3.5 mr-1.5" />
             Cetak
           </Button>
-          <Button onClick={handlePrintPDF} size="sm" disabled={isBusy} className="h-8 text-xs font-semibold bg-primary text-primary-foreground">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            {isGenerating ? "Membuat PDF..." : "Unduh PDF"}
+          <Button onClick={handlePrintPDF} size="sm" disabled={isBusy} className="h-8 text-xs font-semibold bg-primary text-primary-foreground min-w-[100px]">
+            {isGenerating ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            {isGenerating ? (generatingProgress || "Membuat PDF...") : "Unduh PDF"}
           </Button>
         </div>
       </div>
@@ -463,6 +549,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                               <img
                                 src={row.src}
                                 alt={row.label}
+                                crossOrigin="anonymous"
                                 className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
                                 onClick={() => window.open(row.src, "_blank")}
                                 title="Klik untuk membuka foto ukuran penuh"
@@ -584,7 +671,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       {/* ========================================================================= */}
       <div className={cn("w-full overflow-x-auto pb-4 pt-1", viewMode === "a4" ? "block" : "hidden")}>
         <div className="min-w-[840px]">
-          <Card ref={a4DocumentRef} className="bg-white text-black p-4 w-full border-2 border-black">
+          <div ref={a4DocumentRef} className="bg-white text-black p-4 w-full border-2 border-black rounded-sm shadow-xs" style={{ backgroundColor: "#ffffff", color: "#000000" }}>
             <div className="space-y-4">
               <div className="text-center pb-2 border-b-2 border-black">
                 <h1 className="text-xl font-black uppercase tracking-wider m-0 text-black">
@@ -687,6 +774,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                                   <img
                                     src={row.src}
                                     alt={row.label}
+                                    crossOrigin="anonymous"
                                     className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black cursor-pointer hover:opacity-95 transition-opacity"
                                     onClick={() => window.open(row.src, "_blank")}
                                     title="Klik untuk membuka foto ukuran/resolusi penuh"
@@ -772,8 +860,200 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                 <p>Dokumen Resmi Hasil Verifikasi Kontainer · Generated: {new Date().toLocaleString("id-ID")}</p>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. DEDICATED OFF-SCREEN PDF EXPORT CONTAINER (Fixed 1120px, Zero-Cut A4)  */}
+      {/* ========================================================================= */}
+      <div
+        ref={exportContainerRef}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: "-9999px",
+          width: "1120px",
+          zIndex: -9999,
+          pointerEvents: "none",
+          backgroundColor: "#ffffff",
+          color: "#000000",
+        }}
+        aria-hidden="true"
+      >
+        {pagesData.map((page, pageIdx) => {
+          return (
+            <div
+              key={`export-page-${pageIdx}`}
+              className="pdf-export-page"
+              style={{
+                width: "1120px",
+                boxSizing: "border-box",
+                backgroundColor: "#ffffff",
+                color: "#000000",
+                padding: "24px",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                position: "relative",
+              }}
+            >
+              {/* Header */}
+              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "10px", marginBottom: "16px" }}>
+                <h1 style={{ fontSize: "20px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
+                  Dokumen Verifikasi Container
+                </h1>
+              </div>
+
+              {/* Container Banner */}
+              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "12px 16px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, fontSize: "14px", color: "#facc15", fontFamily: "monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                      KONTAINER #{page.insIdx + 1}: {page.inspection.containerNumber || "TANPA NOMOR"}
+                    </span>
+                    {page.inspection.verificationStage === "akhir" ? (
+                      <span style={{ padding: "2px 8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#059669", color: "#ffffff", border: "1px solid #34d399", letterSpacing: "0.5px" }}>
+                        VERIFIKASI AKHIR
+                      </span>
+                    ) : (
+                      <span style={{ padding: "2px 8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #60a5fa", letterSpacing: "0.5px" }}>
+                        VERIFIKASI AWAL
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#e5e7eb", marginTop: "4px" }}>
+                    <span>• Shipper: <strong style={{ color: "#ffffff" }}>{page.inspection.shipperName}</strong></span>
+                    <span style={{ margin: "0 6px" }}>•</span>
+                    <span>Komoditi: <strong style={{ color: "#ffffff", textTransform: "capitalize" }}>{page.inspection.commodityType}</strong></span>
+                    {page.inspection.inspectionLocationName && (
+                      <>
+                        <span style={{ margin: "0 6px" }}>•</span>
+                        <span>Lokasi: <strong style={{ color: "#fde047" }}>{page.inspection.inspectionLocationType === "depo" ? "Depo" : "Pabrik"} - {page.inspection.inspectionLocationName}</strong></span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <span style={{ fontSize: "11px", backgroundColor: "#1f2937", color: "#e5e7eb", padding: "4px 10px", borderRadius: "4px", border: "1px solid #374151", fontWeight: 600 }}>
+                  Petugas: {page.inspection.createdBy}
+                </span>
+              </div>
+
+              {/* Table */}
+              <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#d1d5db", color: "#000000", borderBottom: "2px solid #000000" }}>
+                    <th style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", fontWeight: 900, fontSize: "12px", width: "36%" }}>Photos</th>
+                    <th style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", fontWeight: 900, fontSize: "12px", width: "34%" }}>Information</th>
+                    <th style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", fontWeight: 900, fontSize: "12px", width: "30%" }}>Location</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {page.rows.length === 0 ? (
+                    <tr style={{ borderBottom: "2px solid #000000" }}>
+                      <td style={{ border: "2px solid #000000", padding: "24px", textAlign: "center", color: "#9ca3af", fontStyle: "italic" }}>Tidak Ada Bukti Foto</td>
+                      <td style={{ border: "2px solid #000000", padding: "12px", verticalAlign: "top" }}>
+                        <p style={{ fontWeight: 700, fontSize: "13px", margin: "0 0 6px 0", color: "#000000" }}>{page.inspection.shipperName}</p>
+                        <p style={{ margin: "0 0 4px 0", color: "#374151" }}>Tahap: {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</p>
+                        <p style={{ margin: "0 0 4px 0", color: "#374151" }}>No. Container: {page.inspection.containerNumber || "-"}</p>
+                        <p style={{ margin: "0 0 4px 0", color: "#374151" }}>Komoditi: {page.inspection.commodityType}</p>
+                      </td>
+                      <td style={{ border: "2px solid #000000", padding: "12px", textAlign: "center", verticalAlign: "top" }}>
+                        <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Lokasi Tidak Tersedia</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    page.rows.map((row, rIdx) => {
+                      const lat = page.inspection.location?.latitude
+                      const lng = page.inspection.location?.longitude
+                      return (
+                        <tr key={`prow-${rIdx}`} style={{ borderBottom: "2px solid #000000" }}>
+                          {/* Photo Cell */}
+                          <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb" }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={row.src}
+                              alt={row.label}
+                              crossOrigin="anonymous"
+                              style={{ width: "100%", height: "230px", objectFit: "cover", display: "block", border: "2px solid #000000", borderRadius: "2px", backgroundColor: "#000000" }}
+                            />
+                            <span style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "#000000", textTransform: "uppercase", marginTop: "6px" }}>
+                              {row.label}
+                            </span>
+                          </td>
+
+                          {/* Information Cell */}
+                          <td style={{ border: "2px solid #000000", padding: "12px", verticalAlign: "top", wordBreak: "break-word" }}>
+                            <p style={{ fontWeight: 700, fontSize: "12px", color: "#000000", lineHeight: 1.5, margin: "0 0 8px 0", whiteSpace: "pre-wrap" }}>
+                              {row.info}
+                            </p>
+                            {page.inspection.notes && (
+                              <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #d1d5db", fontSize: "11px", color: "#1f2937" }}>
+                                <span style={{ fontWeight: 700, display: "block", fontSize: "10px", textTransform: "uppercase", color: "#4b5563" }}>Catatan Khusus:</span>
+                                <p style={{ margin: "2px 0 0 0", whiteSpace: "pre-wrap" }}>{page.inspection.notes}</p>
+                              </div>
+                            )}
+                            <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #d1d5db", fontSize: "11px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                                <span style={{ fontWeight: 700, fontSize: "10px", textTransform: "uppercase", color: "#4b5563" }}>Tahap Verifikasi:</span>
+                                <span style={{ padding: "1px 6px", fontSize: "9px", fontWeight: 800, textTransform: "uppercase", borderRadius: "3px", backgroundColor: page.inspection.verificationStage === "akhir" ? "#d1fae5" : "#dbeafe", color: page.inspection.verificationStage === "akhir" ? "#065f46" : "#1e40af", border: page.inspection.verificationStage === "akhir" ? "1px solid #6ee7b7" : "1px solid #93c5fd" }}>
+                                  {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                                </span>
+                              </div>
+                              <div>
+                                <span style={{ fontWeight: 700, fontSize: "10px", textTransform: "uppercase", color: "#4b5563", display: "block" }}>Hasil Verifikasi:</span>
+                                {page.inspection.status === "approved" ? (
+                                  <span style={{ fontWeight: 700, color: "#15803d" }}>✓ Disetujui (Terverifikasi)</span>
+                                ) : page.inspection.status === "needs_correction" ? (
+                                  <span style={{ fontWeight: 700, color: "#b91c1c" }}>⚠️ Minta Perbaikan</span>
+                                ) : (
+                                  <span style={{ fontWeight: 700, color: "#b45309" }}>🕒 Menunggu Tinjauan</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Location Cell */}
+                          <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word" }}>
+                            {lat && lng ? (
+                              <div>
+                                <StaticMap
+                                  lat={lat}
+                                  lng={lng}
+                                  className="w-full"
+                                  style={{ width: "100%", height: "180px", objectFit: "cover", display: "block", border: "2px solid #000000", borderRadius: "2px" }}
+                                />
+                                <div style={{ textAlign: "left", fontSize: "10px", backgroundColor: "#ffffff", padding: "6px 8px", border: "1px solid #000000", borderRadius: "2px", marginTop: "6px" }}>
+                                  <p style={{ fontWeight: 700, color: "#000000", margin: "0 0 2px 0", lineHeight: 1.2 }}>
+                                    📍 {page.inspection.location?.address?.street || page.inspection.location?.address?.name || "Lokasi Inspeksi"}
+                                  </p>
+                                  <p style={{ color: "#374151", margin: "0 0 2px 0" }}>
+                                    {page.inspection.location?.address?.city || ""}, {page.inspection.location?.address?.province || ""}
+                                  </p>
+                                  <p style={{ fontFamily: "monospace", color: "#1d4ed8", fontWeight: 700, margin: 0 }}>
+                                    {lat.toFixed(6)}, {lng.toFixed(6)}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ padding: "40px 10px", textAlign: "center", color: "#9ca3af", fontStyle: "italic", fontSize: "11px" }}>
+                                Lokasi Tidak Tersedia
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+
+              {/* Footer */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "8px", marginTop: "12px", fontSize: "11px", color: "#4b5563", fontWeight: 500 }}>
+                <span>Dokumen Resmi Hasil Verifikasi Kontainer · Generated: {new Date().toLocaleString("id-ID")}</span>
+                <span style={{ fontWeight: 700, color: "#000000" }}>Halaman {pageIdx + 1} dari {totalExportPages}</span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

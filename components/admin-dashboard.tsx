@@ -209,7 +209,14 @@ export function AdminDashboard({ user }: { user: User }) {
   const handleViewSingle = async (inspection: Inspection) => {
     setIsLoadingDoc(true)
     try {
-      const res = await fetch(`/api/inspections/${inspection.id}`, { credentials: "include" })
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const res = await fetch(`/api/inspections/${inspection.id}`, {
+        credentials: "include",
+        headers,
+      })
       if (res.ok) {
         const fullData = await res.json()
         setPreviewInspections([fullData])
@@ -243,9 +250,16 @@ export function AdminDashboard({ user }: { user: User }) {
     if (documentSelection.length === 0) return
     setIsLoadingDoc(true)
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       const fetches = documentSelection.map(async (item) => {
         try {
-          const res = await fetch(`/api/inspections/${item.id}`, { credentials: "include" })
+          const res = await fetch(`/api/inspections/${item.id}`, {
+            credentials: "include",
+            headers,
+          })
           if (res.ok) return (await res.json()) as Inspection
         } catch {
           // fallback

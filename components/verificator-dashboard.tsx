@@ -84,7 +84,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
       if (typeof window !== "undefined") {
         try {
           sessionStorage.setItem(`inspections_${user.name}`, JSON.stringify(list.slice(0, 50)))
-        } catch {}
+        } catch { }
       }
     } catch (error) {
       console.error("Failed to load inspections:", error)
@@ -537,13 +537,12 @@ export function VerificatorDashboard({ user }: { user: User }) {
                       return (
                         <Card
                           key={inspection.id}
-                          className={`transition-colors ${
-                            isSelected
+                          className={`transition-colors ${isSelected
                               ? "border-primary bg-primary/5"
                               : inspection.status === "needs_correction"
-                              ? "border-red-300 dark:border-red-800 bg-red-50/20"
-                              : ""
-                          }`}
+                                ? "border-red-300 dark:border-red-800 bg-red-50/20"
+                                : ""
+                            }`}
                         >
                           <CardContent className="p-3 sm:p-4">
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-start justify-between gap-3">
@@ -576,11 +575,10 @@ export function VerificatorDashboard({ user }: { user: User }) {
                                   </p>
                                   {inspection.adminNotes && (
                                     <div
-                                      className={`mt-2 p-2.5 rounded-md text-xs sm:text-sm ${
-                                        inspection.status === "needs_correction"
+                                      className={`mt-2 p-2.5 rounded-md text-xs sm:text-sm ${inspection.status === "needs_correction"
                                           ? "bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-900 dark:text-red-200"
                                           : "bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-200"
-                                      }`}
+                                        }`}
                                     >
                                       <span className="font-semibold">
                                         {inspection.status === "needs_correction" ? "⚠️ Masukan Admin: " : "Catatan Admin: "}
