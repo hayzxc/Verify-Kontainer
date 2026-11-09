@@ -26,6 +26,7 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
   const [newUser, setNewUser] = useState({
@@ -64,9 +65,13 @@ export function UserManagement() {
     fetchUsers()
   }, [])
 
-  const hasAdmin = useMemo(() => {
-    return users.some((u) => u.role === "admin")
+  const adminCount = useMemo(() => {
+    return users.filter((u) => u.role === "admin").length
   }, [users])
+
+  const hasAdmin = useMemo(() => {
+    return adminCount > 0
+  }, [adminCount])
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users
@@ -155,6 +160,66 @@ export function UserManagement() {
       setError(err.message || "Terjadi kesalahan saat menghapus pengguna")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleUpdateRole = async (targetUser: UserData, newRole: "admin" | "verificator" | "user") => {
+    if (targetUser.role === newRole) return
+
+    if (targetUser.id === currentUser?.id && newRole !== "admin") {
+      setError("Anda tidak dapat menurunkan peran akun Anda sendiri yang sedang aktif")
+      return
+    }
+
+    if (targetUser.role === "admin" && newRole !== "admin" && adminCount <= 1) {
+      setError("Tidak dapat mengubah peran satu-satunya akun admin dalam sistem")
+      return
+    }
+
+    const roleLabels: Record<string, string> = {
+      admin: "Admin",
+      verificator: "Petugas Verifikasi",
+      user: "Pengguna Umum",
+    }
+
+    if (newRole === "admin") {
+      const confirmed = confirm(
+        `Apakah Anda yakin ingin memberikan hak akses Admin penuh kepada "${targetUser.name}" (${targetUser.email})?`
+      )
+      if (!confirmed) return
+    }
+
+    try {
+      setUpdatingId(targetUser.id)
+      setError(null)
+      setSuccess(null)
+
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const res = await fetch(`/api/users/${targetUser.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ role: newRole }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error?.message || data.message || "Gagal mengubah peran pengguna")
+      }
+
+      setUsers((prev) =>
+        prev.map((u) => (u.id === targetUser.id ? { ...u, role: newRole } : u))
+      )
+      setSuccess(
+        `Peran untuk "${targetUser.name}" berhasil diubah menjadi ${roleLabels[newRole] || newRole}.`
+      )
+    } catch (err: any) {
+      setError(err.message || "Terjadi kesalahan saat mengubah peran pengguna")
+    } finally {
+      setUpdatingId(null)
     }
   }
 
@@ -346,7 +411,7 @@ export function UserManagement() {
                 return (
                   <div
                     key={item.id}
-                    className="py-3.5 flex items-center justify-between gap-3 hover:bg-muted/30 px-2 rounded-lg transition-colors"
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/30 px-2.5 rounded-lg transition-colors border border-transparent hover:border-border/40"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary flex-shrink-0">
@@ -381,26 +446,69 @@ export function UserManagement() {
                       </div>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={isCurrent || isOnlyAdmin || isDeleting}
-                      onClick={() => handleDeleteUser(item)}
-                      title={
-                        isCurrent
-                          ? "Tidak dapat menghapus akun Anda sendiri"
-                          : isOnlyAdmin
-                          ? "Tidak dapat menghapus satu-satunya admin"
-                          : "Hapus pengguna"
-                      }
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8 p-0"
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                      <div className="flex items-center gap-1.5">
+                        <Select
+                          value={item.role}
+                          disabled={
+                            updatingId === item.id ||
+                            (isCurrent && item.role === "admin" && adminCount <= 1)
+                          }
+                          onValueChange={(newRole: "admin" | "verificator" | "user") =>
+                            handleUpdateRole(item, newRole)
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[145px] sm:w-[160px] text-xs font-semibold">
+                            {updatingId === item.id ? (
+                              <div className="flex items-center gap-1.5 text-xs text-primary">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <span>Menyimpan...</span>
+                              </div>
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">
+                              <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
+                                <Shield className="h-3.5 w-3.5" /> Admin
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="verificator">
+                              <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                <KeyRound className="h-3.5 w-3.5" /> Petugas Verifikasi
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="user">
+                              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                <User className="h-3.5 w-3.5" /> Pengguna Umum
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isCurrent || isOnlyAdmin || isDeleting || updatingId === item.id}
+                        onClick={() => handleDeleteUser(item)}
+                        title={
+                          isCurrent
+                            ? "Tidak dapat menghapus akun Anda sendiri"
+                            : isOnlyAdmin
+                            ? "Tidak dapat menghapus satu-satunya admin"
+                            : "Hapus pengguna"
+                        }
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8 p-0"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )
               })}

@@ -170,16 +170,16 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
       const dateStr = new Date().toISOString().split("T")[0]
       const pdf = new jsPDF({
-        orientation: "landscape",
+        orientation: "portrait",
         unit: "mm",
         format: "a4",
       })
 
-      const pageWidthMm = 297
-      const pageHeightMm = 210
+      const pageWidthMm = 210
+      const pageHeightMm = 297
       const marginMm = 6
-      const contentWidthMm = pageWidthMm - marginMm * 2 // 285mm
-      const maxContentHeightMm = pageHeightMm - marginMm * 2 // 198mm
+      const contentWidthMm = pageWidthMm - marginMm * 2 // 198mm
+      const maxContentHeightMm = pageHeightMm - marginMm * 2 // 285mm
 
       const pageElements = Array.from(
         container.querySelectorAll<HTMLElement>(".pdf-export-page")
@@ -192,7 +192,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       for (let i = 0; i < pageElements.length; i++) {
         setGeneratingProgress(`Membuat halaman ${i + 1} dari ${pageElements.length}...`)
         if (i > 0) {
-          pdf.addPage("a4", "landscape")
+          pdf.addPage("a4", "portrait")
         }
 
         const pageEl = pageElements[i]
@@ -225,7 +225,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       }
 
       setGeneratingProgress("Mengunduh file PDF...")
-      const filename = `Dokumen-Verifikasi-Container-${dateStr}.pdf`
+      const filename = `Dokumen-Verifikasi-${dateStr}.pdf`
       pdf.save(filename)
     } catch (error) {
       console.error("Error generating PDF:", error)
@@ -251,10 +251,10 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
     printWindow.document.write(`
       <html>
         <head>
-          <title>Print Dokumen Verifikasi Container</title>
+          <title>Print Dokumen Verifikasi</title>
           <style>
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-            @page { size: landscape; margin: 6mm; }
+            @page { size: portrait; margin: 6mm; }
             body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 10px; color: #000; background: #fff; }
             .pdf-export-page { page-break-after: always; margin-bottom: 20px; }
             .pdf-export-page:last-child { page-break-after: avoid; }
@@ -368,7 +368,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
   const isBusy = isEnriching || isGenerating
 
-  // Pre-calculate cleanly paginated chunks (2 rows per page) for high-quality, zero-cut PDF generation
+  // Pre-calculate cleanly paginated chunks (4 rows per page) for high-quality, zero-cut PDF generation
   const pagesData = inspectionsWithAddress.flatMap((inspection, insIdx) => {
     const photoRows = getPhotoRows(inspection)
     if (photoRows.length === 0) {
@@ -380,11 +380,11 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         totalInspectionPages: 1,
       }]
     }
-    const chunkCount = Math.ceil(photoRows.length / 2)
+    const chunkCount = Math.ceil(photoRows.length / 4)
     return Array.from({ length: chunkCount }, (_, chunkIdx) => ({
       inspection,
       insIdx,
-      rows: photoRows.slice(chunkIdx * 2, chunkIdx * 2 + 2),
+      rows: photoRows.slice(chunkIdx * 4, chunkIdx * 4 + 4),
       pageIdxInInspection: chunkIdx,
       totalInspectionPages: chunkCount,
     }))
@@ -450,7 +450,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         <div className="text-[11px] sm:text-xs text-blue-900 bg-blue-50 border border-blue-200 rounded-md p-2.5 flex items-center gap-2">
           <span className="text-base">💡</span>
           <span>
-            <strong>Mode Dokumen A4:</strong> Format resmi lembar cetak lanskap. Pada layar ponsel, geser ke samping (swipe horizontal) untuk memeriksa seluruh kolom.
+            <strong>Mode Dokumen A4:</strong> Format resmi lembar cetak potret. Pada layar ponsel, geser ke samping (swipe horizontal) untuk memeriksa seluruh kolom.
           </span>
         </div>
       )}
@@ -462,7 +462,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         <div className="bg-white text-black p-3 sm:p-4 rounded-lg border-2 border-black shadow-xs">
           <div className="text-center pb-2.5 border-b-2 border-black mb-4">
             <h1 className="text-base sm:text-lg font-black uppercase tracking-wider m-0 text-black">
-              Dokumen Verifikasi Container
+              Dokumen Verifikasi
             </h1>
             <p className="text-[11px] text-gray-600 font-medium mt-0.5">
               Pratinjau Hasil Pemeriksaan Lapangan
@@ -496,9 +496,6 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                         </span>
                       )}
                     </div>
-                    <span className="self-start sm:self-auto text-[11px] bg-gray-800 text-gray-200 px-2 py-0.5 rounded border border-gray-700 font-medium">
-                      Petugas: {inspection.createdBy}
-                    </span>
                   </div>
 
                   <div className="text-xs text-gray-200 flex flex-wrap gap-x-2 gap-y-1 pt-1.5 border-t border-gray-800">
@@ -661,7 +658,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
           })}
 
           <div className="text-[11px] text-gray-600 border-t-2 border-black pt-2.5 text-center font-medium">
-            <p>Dokumen Resmi Hasil Verifikasi Kontainer · Generated: {new Date().toLocaleString("id-ID")}</p>
+            <p>Dokumen Resmi Hasil Verifikasi · Generated: {new Date().toLocaleString("id-ID")}</p>
           </div>
         </div>
       </div>
@@ -670,201 +667,198 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       {/* 2. OFFICIAL A4 PRINT DOCUMENT (Horizontal Scroll on Mobile, Full on PC)   */}
       {/* ========================================================================= */}
       <div className={cn("w-full overflow-x-auto pb-4 pt-1", viewMode === "a4" ? "block" : "hidden")}>
-        <div className="min-w-[840px]">
-          <div ref={a4DocumentRef} className="bg-white text-black p-4 w-full border-2 border-black rounded-sm shadow-xs" style={{ backgroundColor: "#ffffff", color: "#000000" }}>
-            <div className="space-y-4">
-              <div className="text-center pb-2 border-b-2 border-black">
-                <h1 className="text-xl font-black uppercase tracking-wider m-0 text-black">
-                  Dokumen Verifikasi Container
-                </h1>
-              </div>
+        <div className="min-w-[640px] max-w-[794px] mx-auto space-y-6">
+          <div ref={a4DocumentRef} className="space-y-6">
+            {pagesData.map((page, pageIdx) => {
+              const lat = page.inspection.location?.latitude
+              const lng = page.inspection.location?.longitude
 
-              {inspectionsWithAddress.map((inspection, insIdx) => {
-                const lat = inspection.location?.latitude
-                const lng = inspection.location?.longitude
-                const photoRows = getPhotoRows(inspection)
+              return (
+                <div
+                  key={`a4-page-${pageIdx}`}
+                  className="bg-white text-black p-4 sm:p-5 w-full border-2 border-black rounded-sm shadow-md page-break-after-always"
+                  style={{ backgroundColor: "#ffffff", color: "#000000" }}
+                >
+                  {/* DISTINCT HEADER TITLE */}
+                  <div className="text-center pb-1.5 border-b-2 border-black mb-3">
+                    <h1 className="text-lg sm:text-xl font-black uppercase tracking-wider m-0 text-black">
+                      Dokumen Verifikasi
+                    </h1>
+                  </div>
 
-                return (
-                  <div
-                    key={inspection.id || insIdx}
-                    className="mb-8 border-4 border-black rounded-sm overflow-hidden page-break-after-always shadow-md"
-                  >
-                    {/* DISTINCT CONTAINER HEADER BANNER */}
-                    <div className="bg-gray-900 text-white px-4 py-2.5 flex items-center justify-between border-b-4 border-black">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-extrabold text-sm text-yellow-400 font-mono tracking-wide uppercase">
-                            KONTAINER #{insIdx + 1}: {inspection.containerNumber || "TANPA NOMOR"}
-                          </span>
-                          {inspection.verificationStage === "akhir" ? (
-                            <span className="px-2 py-0.5 text-[11px] font-black uppercase rounded bg-emerald-600 text-white border border-emerald-400 tracking-wider">
-                              VERIFIKASI AKHIR
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-[11px] font-black uppercase rounded bg-blue-600 text-white border border-blue-400 tracking-wider">
-                              VERIFIKASI AWAL
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-gray-200 mt-1 block">
-                          • Shipper: <strong className="text-white">{inspection.shipperName}</strong> • Komoditi: <strong className="text-white capitalize">{inspection.commodityType}</strong>
-                          {inspection.inspectionLocationName && (
-                            <> • Lokasi: <strong className="text-yellow-300">{inspection.inspectionLocationType === 'depo' ? 'Depo' : 'Pabrik'} - {inspection.inspectionLocationName}</strong></>
-                          )}
+                  {/* DISTINCT CONTAINER HEADER BANNER */}
+                  <div className="bg-gray-900 text-white px-3 sm:px-4 py-2 flex items-center justify-between border-2 border-black border-b-0">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-xs sm:text-sm text-yellow-400 font-mono tracking-wide uppercase">
+                          KONTAINER #{page.insIdx + 1}: {page.inspection.containerNumber || "TANPA NOMOR"}
                         </span>
+                        {page.inspection.verificationStage === "akhir" ? (
+                          <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-emerald-600 text-white border border-emerald-400 tracking-wider">
+                            VERIFIKASI AKHIR
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded bg-blue-600 text-white border border-blue-400 tracking-wider">
+                            VERIFIKASI AWAL
+                          </span>
+                        )}
                       </div>
-                      <span className="text-xs bg-gray-800 text-gray-200 px-2.5 py-1 rounded border border-gray-700 font-medium">
-                        Petugas: {inspection.createdBy}
+                      <span className="text-[11px] text-gray-200 mt-0.5 block">
+                        • Shipper: <strong className="text-white">{page.inspection.shipperName}</strong> • Komoditi: <strong className="text-white capitalize">{page.inspection.commodityType}</strong>
+                        {page.inspection.inspectionLocationName && (
+                          <> • Lokasi: <strong className="text-yellow-300">{page.inspection.inspectionLocationType === 'depo' ? 'Depo' : 'Pabrik'} - {page.inspection.inspectionLocationName}</strong></>
+                        )}
                       </span>
                     </div>
+                  </div>
 
-                    <table className="w-full text-xs border-collapse table-fixed">
-                      <thead>
-                        <tr className="bg-gray-300 text-black border-b-2 border-black">
-                          <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[36%]" style={{ width: "36%" }}>
-                            Photos
-                          </th>
-                          <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[34%]" style={{ width: "34%" }}>
-                            Information
-                          </th>
-                          <th className="border-2 border-black p-2 text-center font-extrabold text-xs sm:text-sm w-[30%]" style={{ width: "30%" }}>
-                            Location
-                          </th>
+                  {/* 4-ROW A4 TABLE */}
+                  <table className="w-full text-xs border-collapse table-fixed border-2 border-black">
+                    <thead>
+                      <tr className="bg-gray-300 text-black border-b-2 border-black">
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[36%]" style={{ width: "36%" }}>
+                          Photos
+                        </th>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[34%]" style={{ width: "34%" }}>
+                          Information
+                        </th>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[30%]" style={{ width: "30%" }}>
+                          Location
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {page.rows.length === 0 ? (
+                        <tr className="border-b-2 border-black">
+                          <td className="border-2 border-black p-4 text-center align-middle text-gray-400 italic">
+                            Tidak Ada Bukti Foto
+                          </td>
+                          <td className="border-2 border-black p-3 align-top">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-bold text-xs text-black">{page.inspection.shipperName}</p>
+                              <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase rounded ${
+                                page.inspection.verificationStage === "akhir"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : "bg-blue-100 text-blue-800 border border-blue-300"
+                              }`}>
+                                {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-700">No. Container: {page.inspection.containerNumber || "-"}</p>
+                            <p className="text-[11px] text-gray-700">Komoditi: {page.inspection.commodityType}</p>
+                          </td>
+                          <td className="border-2 border-black p-3 align-top text-center">
+                            {lat && lng ? (
+                              <div>
+                                <p className="font-bold text-[11px]">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
+                                <p className="text-[11px] text-gray-700">{page.inspection.location?.address?.city || ""}</p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic text-[11px]">Lokasi Tidak Tersedia</span>
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {photoRows.length === 0 ? (
-                          <tr className="border-b-2 border-black">
-                            <td className="border-2 border-black p-4 text-center align-middle text-gray-400 italic">
-                              Tidak Ada Bukti Foto
-                            </td>
-                            <td className="border-2 border-black p-3 align-top">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="font-bold text-sm text-black">{inspection.shipperName}</p>
-                                <span className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded ${
-                                  inspection.verificationStage === "akhir"
-                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                    : "bg-blue-100 text-blue-800 border border-blue-300"
-                                }`}>
-                                  {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                      ) : (
+                        page.rows.map((row, rIdx) => (
+                          <tr key={`a4-row-${pageIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid photo-row">
+                            {/* PHOTOS COLUMN (LEFT) */}
+                            <td className="border-2 border-black p-1.5 align-top text-center bg-gray-50/50">
+                              <div className="w-full">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={row.src}
+                                  alt={row.label}
+                                  crossOrigin="anonymous"
+                                  className="w-full h-32 sm:h-36 object-cover border border-black block rounded-xs bg-black cursor-pointer hover:opacity-95 transition-opacity"
+                                  onClick={() => window.open(row.src, "_blank")}
+                                  title="Klik untuk membuka foto ukuran/resolusi penuh"
+                                />
+                                <span className="block text-[9px] font-bold text-black uppercase mt-1">
+                                  {row.label}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-700">Tahap: {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</p>
-                              <p className="text-xs text-gray-700">No. Container: {inspection.containerNumber || "-"}</p>
-                              <p className="text-xs text-gray-700">Komoditi: {inspection.commodityType}</p>
                             </td>
-                            <td className="border-2 border-black p-3 align-top text-center">
-                              {lat && lng ? (
+
+                            {/* INFORMATION COLUMN (MIDDLE) */}
+                            <td className="border-2 border-black p-2 align-top" style={{ wordBreak: "break-word" }}>
+                              <p className="font-bold text-[11px] text-black leading-snug whitespace-pre-wrap">
+                                {row.info}
+                              </p>
+                              {page.inspection.notes && (
+                                <div className="mt-1.5 pt-1.5 border-t border-gray-300 text-[10px] text-gray-800">
+                                  <span className="font-bold block text-[9px] uppercase text-gray-600">Catatan Khusus:</span>
+                                  <p className="whitespace-pre-wrap">{page.inspection.notes}</p>
+                                </div>
+                              )}
+                              <div className="mt-1.5 pt-1.5 border-t border-gray-300 text-[10px] space-y-1">
+                                <div className="flex flex-wrap items-center justify-between gap-1">
+                                  <span className="font-bold text-[9px] uppercase text-gray-600">Tahap Verifikasi:</span>
+                                  <span className={`px-1.5 py-0.5 text-[9px] font-black uppercase rounded ${
+                                    page.inspection.verificationStage === "akhir"
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                      : "bg-blue-100 text-blue-800 border border-blue-300"
+                                  }`}>
+                                    {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
+                                  </span>
+                                </div>
                                 <div>
-                                  <p className="font-bold text-xs">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
-                                  <p className="text-xs text-gray-700">{inspection.location?.address?.city || ""}</p>
+                                  <span className="font-bold block text-[9px] uppercase text-gray-600">Hasil Verifikasi:</span>
+                                  {page.inspection.status === "approved" ? (
+                                    <span className="font-bold text-green-700">✓ Disetujui (Terverifikasi)</span>
+                                  ) : page.inspection.status === "needs_correction" ? (
+                                    <span className="font-bold text-red-700">⚠️ Minta Perbaikan</span>
+                                  ) : (
+                                    <span className="font-bold text-yellow-700">🕒 Menunggu Tinjauan</span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
+                            <td className="border-2 border-black p-1.5 align-top text-center bg-gray-50/50" style={{ wordBreak: "break-word" }}>
+                              {lat && lng ? (
+                                <div className="space-y-1">
+                                  <StaticMap
+                                    lat={lat}
+                                    lng={lng}
+                                    className="w-full h-24 sm:h-28 object-cover border border-black block rounded-xs bg-gray-200"
+                                  />
+                                  <div className="text-left text-[9px] font-sans bg-white p-1.5 border border-black rounded-xs space-y-0.5">
+                                    <p className="font-bold text-black leading-tight line-clamp-1">
+                                      📍 {page.inspection.location?.address?.street || page.inspection.location?.address?.name || "Lokasi Inspeksi"}
+                                    </p>
+                                    <p className="text-gray-700 line-clamp-1">
+                                      {page.inspection.location?.address?.city || ""}, {page.inspection.location?.address?.province || ""}
+                                    </p>
+                                    <p className="font-mono text-blue-700 font-semibold">
+                                      {lat?.toFixed(6)}, {lng?.toFixed(6)}
+                                    </p>
+                                  </div>
                                 </div>
                               ) : (
-                                <span className="text-gray-400 italic">Lokasi Tidak Tersedia</span>
+                                <div className="py-6 text-center text-gray-400 italic text-[11px]">
+                                  Lokasi Tidak Tersedia
+                                </div>
                               )}
                             </td>
                           </tr>
-                        ) : (
-                          photoRows.map((row, rIdx) => (
-                            <tr key={`${insIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid photo-row">
-                              {/* PHOTOS COLUMN (LEFT) */}
-                              <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50">
-                                <div className="w-full">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={row.src}
-                                    alt={row.label}
-                                    crossOrigin="anonymous"
-                                    className="w-full h-52 sm:h-64 object-cover border-2 border-black block rounded-xs bg-black cursor-pointer hover:opacity-95 transition-opacity"
-                                    onClick={() => window.open(row.src, "_blank")}
-                                    title="Klik untuk membuka foto ukuran/resolusi penuh"
-                                  />
-                                  <span className="block text-[10px] font-bold text-black uppercase mt-1">
-                                    {row.label}
-                                  </span>
-                                </div>
-                              </td>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
 
-                              {/* INFORMATION COLUMN (MIDDLE) */}
-                              <td className="border-2 border-black p-3 align-top" style={{ wordBreak: "break-word" }}>
-                                <p className="font-bold text-xs sm:text-sm text-black leading-snug whitespace-pre-wrap">
-                                  {row.info}
-                                </p>
-                                {inspection.notes && (
-                                  <div className="mt-3 pt-2 border-t border-gray-300 text-xs text-gray-800">
-                                    <span className="font-bold block text-[10px] uppercase text-gray-600">Catatan Khusus:</span>
-                                    <p className="whitespace-pre-wrap">{inspection.notes}</p>
-                                  </div>
-                                )}
-                                <div className="mt-3 pt-2 border-t border-gray-300 text-[11px] space-y-1.5">
-                                  <div className="flex flex-wrap items-center justify-between gap-1">
-                                    <span className="font-bold text-[10px] uppercase text-gray-600">Tahap Verifikasi:</span>
-                                    <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded ${
-                                      inspection.verificationStage === "akhir"
-                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                        : "bg-blue-100 text-blue-800 border border-blue-300"
-                                    }`}>
-                                      {inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="font-bold block text-[10px] uppercase text-gray-600">Hasil Verifikasi:</span>
-                                    {inspection.status === "approved" ? (
-                                      <span className="font-bold text-green-700">✓ Disetujui (Terverifikasi)</span>
-                                    ) : inspection.status === "needs_correction" ? (
-                                      <span className="font-bold text-red-700">⚠️ Minta Perbaikan</span>
-                                    ) : (
-                                      <span className="font-bold text-yellow-700">🕒 Menunggu Tinjauan</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-
-                              {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
-                              <td className="border-2 border-black p-2 align-top text-center bg-gray-50/50" style={{ wordBreak: "break-word" }}>
-                                {lat && lng ? (
-                                  <div className="map-container space-y-2">
-                                    <StaticMap
-                                      lat={lat}
-                                      lng={lng}
-                                      className="w-full h-44 sm:h-52 object-cover border-2 border-black block rounded-xs bg-gray-200"
-                                    />
-                                    <div className="text-left text-[10px] font-sans bg-white p-2 border border-black rounded-xs space-y-0.5">
-                                      <p className="font-bold text-black leading-tight">
-                                        📍 {inspection.location?.address?.street || inspection.location?.address?.name || "Lokasi Inspeksi"}
-                                      </p>
-                                      <p className="text-gray-700">
-                                        {inspection.location?.address?.city || ""}, {inspection.location?.address?.province || ""}
-                                      </p>
-                                      <p className="font-mono text-blue-700 font-semibold">
-                                        {lat?.toFixed(6)}, {lng?.toFixed(6)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="py-12 text-center text-gray-400 italic text-xs">
-                                    Lokasi Tidak Tersedia
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                  {/* PAGE FOOTER */}
+                  <div className="flex justify-between items-center border-t-2 border-black pt-1.5 mt-2 text-[10px] text-gray-600 font-medium">
+                    <span>Dokumen Resmi Hasil Verifikasi · Generated: {new Date().toLocaleString("id-ID")}</span>
+                    <span className="font-bold text-black">Halaman {pageIdx + 1} dari {totalExportPages}</span>
                   </div>
-                )
-              })}
-
-              <div className="text-xs text-gray-600 border-t-2 border-black pt-2 text-center font-medium">
-                <p>Dokumen Resmi Hasil Verifikasi Kontainer · Generated: {new Date().toLocaleString("id-ID")}</p>
-              </div>
-            </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
       {/* 3. DEDICATED OFF-SCREEN PDF EXPORT CONTAINER (Fixed 1120px, Zero-Cut A4)  */}
       {/* ========================================================================= */}
       <div
@@ -873,7 +867,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
           position: "fixed",
           top: 0,
           left: "-9999px",
-          width: "1120px",
+          width: "794px",
           zIndex: -9999,
           pointerEvents: "none",
           backgroundColor: "#ffffff",
@@ -887,40 +881,40 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               key={`export-page-${pageIdx}`}
               className="pdf-export-page"
               style={{
-                width: "1120px",
+                width: "794px",
                 boxSizing: "border-box",
                 backgroundColor: "#ffffff",
                 color: "#000000",
-                padding: "24px",
+                padding: "16px 18px",
                 fontFamily: "system-ui, -apple-system, sans-serif",
                 position: "relative",
               }}
             >
               {/* Header */}
-              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "10px", marginBottom: "16px" }}>
-                <h1 style={{ fontSize: "20px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
-                  Dokumen Verifikasi Container
+              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "6px", marginBottom: "8px" }}>
+                <h1 style={{ fontSize: "18px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
+                  Dokumen Verifikasi
                 </h1>
               </div>
 
               {/* Container Banner */}
-              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "12px 16px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "8px 12px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 800, fontSize: "14px", color: "#facc15", fontFamily: "monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 800, fontSize: "13px", color: "#facc15", fontFamily: "monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
                       KONTAINER #{page.insIdx + 1}: {page.inspection.containerNumber || "TANPA NOMOR"}
                     </span>
                     {page.inspection.verificationStage === "akhir" ? (
-                      <span style={{ padding: "2px 8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#059669", color: "#ffffff", border: "1px solid #34d399", letterSpacing: "0.5px" }}>
+                      <span style={{ padding: "2px 6px", fontSize: "9px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#059669", color: "#ffffff", border: "1px solid #34d399", letterSpacing: "0.5px" }}>
                         VERIFIKASI AKHIR
                       </span>
                     ) : (
-                      <span style={{ padding: "2px 8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #60a5fa", letterSpacing: "0.5px" }}>
+                      <span style={{ padding: "2px 6px", fontSize: "9px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #60a5fa", letterSpacing: "0.5px" }}>
                         VERIFIKASI AWAL
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: "11px", color: "#e5e7eb", marginTop: "4px" }}>
+                  <div style={{ fontSize: "10px", color: "#e5e7eb", marginTop: "3px" }}>
                     <span>• Shipper: <strong style={{ color: "#ffffff" }}>{page.inspection.shipperName}</strong></span>
                     <span style={{ margin: "0 6px" }}>•</span>
                     <span>Komoditi: <strong style={{ color: "#ffffff", textTransform: "capitalize" }}>{page.inspection.commodityType}</strong></span>
@@ -932,31 +926,28 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                     )}
                   </div>
                 </div>
-                <span style={{ fontSize: "11px", backgroundColor: "#1f2937", color: "#e5e7eb", padding: "4px 10px", borderRadius: "4px", border: "1px solid #374151", fontWeight: 600 }}>
-                  Petugas: {page.inspection.createdBy}
-                </span>
               </div>
 
               {/* Table */}
-              <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000" }}>
+              <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000" }}>
                 <thead>
                   <tr style={{ backgroundColor: "#d1d5db", color: "#000000", borderBottom: "2px solid #000000" }}>
-                    <th style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", fontWeight: 900, fontSize: "12px", width: "36%" }}>Photos</th>
-                    <th style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", fontWeight: 900, fontSize: "12px", width: "34%" }}>Information</th>
-                    <th style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", fontWeight: 900, fontSize: "12px", width: "30%" }}>Location</th>
+                    <th style={{ border: "2px solid #000000", padding: "5px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "36%" }}>Photos</th>
+                    <th style={{ border: "2px solid #000000", padding: "5px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "34%" }}>Information</th>
+                    <th style={{ border: "2px solid #000000", padding: "5px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "30%" }}>Location</th>
                   </tr>
                 </thead>
                 <tbody>
                   {page.rows.length === 0 ? (
                     <tr style={{ borderBottom: "2px solid #000000" }}>
-                      <td style={{ border: "2px solid #000000", padding: "24px", textAlign: "center", color: "#9ca3af", fontStyle: "italic" }}>Tidak Ada Bukti Foto</td>
-                      <td style={{ border: "2px solid #000000", padding: "12px", verticalAlign: "top" }}>
-                        <p style={{ fontWeight: 700, fontSize: "13px", margin: "0 0 6px 0", color: "#000000" }}>{page.inspection.shipperName}</p>
-                        <p style={{ margin: "0 0 4px 0", color: "#374151" }}>Tahap: {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</p>
-                        <p style={{ margin: "0 0 4px 0", color: "#374151" }}>No. Container: {page.inspection.containerNumber || "-"}</p>
-                        <p style={{ margin: "0 0 4px 0", color: "#374151" }}>Komoditi: {page.inspection.commodityType}</p>
+                      <td style={{ border: "2px solid #000000", padding: "16px", textAlign: "center", color: "#9ca3af", fontStyle: "italic" }}>Tidak Ada Bukti Foto</td>
+                      <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top" }}>
+                        <p style={{ fontWeight: 700, fontSize: "11px", margin: "0 0 4px 0", color: "#000000" }}>{page.inspection.shipperName}</p>
+                        <p style={{ margin: "0 0 3px 0", color: "#374151" }}>Tahap: {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</p>
+                        <p style={{ margin: "0 0 3px 0", color: "#374151" }}>No. Container: {page.inspection.containerNumber || "-"}</p>
+                        <p style={{ margin: "0 0 3px 0", color: "#374151" }}>Komoditi: {page.inspection.commodityType}</p>
                       </td>
-                      <td style={{ border: "2px solid #000000", padding: "12px", textAlign: "center", verticalAlign: "top" }}>
+                      <td style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", verticalAlign: "top" }}>
                         <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Lokasi Tidak Tersedia</span>
                       </td>
                     </tr>
@@ -966,40 +957,40 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                       const lng = page.inspection.location?.longitude
                       return (
                         <tr key={`prow-${rIdx}`} style={{ borderBottom: "2px solid #000000" }}>
-                          {/* Photo Cell */}
-                          <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb" }}>
+                          {/* Photo Cell (Compact for 4-row layout) */}
+                          <td style={{ border: "2px solid #000000", padding: "4px 6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={row.src}
                               alt={row.label}
                               crossOrigin="anonymous"
-                              style={{ width: "100%", height: "230px", objectFit: "cover", display: "block", border: "2px solid #000000", borderRadius: "2px", backgroundColor: "#000000" }}
+                              style={{ width: "100%", height: "135px", objectFit: "cover", display: "block", border: "1.5px solid #000000", borderRadius: "2px", backgroundColor: "#000000" }}
                             />
-                            <span style={{ display: "block", fontSize: "10px", fontWeight: 700, color: "#000000", textTransform: "uppercase", marginTop: "6px" }}>
+                            <span style={{ display: "block", fontSize: "9px", fontWeight: 700, color: "#000000", textTransform: "uppercase", marginTop: "3px", lineHeight: "1.2" }}>
                               {row.label}
                             </span>
                           </td>
 
                           {/* Information Cell */}
-                          <td style={{ border: "2px solid #000000", padding: "12px", verticalAlign: "top", wordBreak: "break-word" }}>
-                            <p style={{ fontWeight: 700, fontSize: "12px", color: "#000000", lineHeight: 1.5, margin: "0 0 8px 0", whiteSpace: "pre-wrap" }}>
+                          <td style={{ border: "2px solid #000000", padding: "6px 8px", verticalAlign: "top", wordBreak: "break-word" }}>
+                            <p style={{ fontWeight: 700, fontSize: "10px", color: "#000000", lineHeight: 1.35, margin: "0 0 4px 0", whiteSpace: "pre-wrap" }}>
                               {row.info}
                             </p>
                             {page.inspection.notes && (
-                              <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #d1d5db", fontSize: "11px", color: "#1f2937" }}>
-                                <span style={{ fontWeight: 700, display: "block", fontSize: "10px", textTransform: "uppercase", color: "#4b5563" }}>Catatan Khusus:</span>
-                                <p style={{ margin: "2px 0 0 0", whiteSpace: "pre-wrap" }}>{page.inspection.notes}</p>
+                              <div style={{ marginTop: "4px", paddingTop: "4px", borderTop: "1px solid #d1d5db", fontSize: "9px", color: "#1f2937" }}>
+                                <span style={{ fontWeight: 700, display: "block", fontSize: "9px", textTransform: "uppercase", color: "#4b5563" }}>Catatan Khusus:</span>
+                                <p style={{ margin: "1px 0 0 0", whiteSpace: "pre-wrap" }}>{page.inspection.notes}</p>
                               </div>
                             )}
-                            <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid #d1d5db", fontSize: "11px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                                <span style={{ fontWeight: 700, fontSize: "10px", textTransform: "uppercase", color: "#4b5563" }}>Tahap Verifikasi:</span>
-                                <span style={{ padding: "1px 6px", fontSize: "9px", fontWeight: 800, textTransform: "uppercase", borderRadius: "3px", backgroundColor: page.inspection.verificationStage === "akhir" ? "#d1fae5" : "#dbeafe", color: page.inspection.verificationStage === "akhir" ? "#065f46" : "#1e40af", border: page.inspection.verificationStage === "akhir" ? "1px solid #6ee7b7" : "1px solid #93c5fd" }}>
+                            <div style={{ marginTop: "4px", paddingTop: "4px", borderTop: "1px solid #d1d5db", fontSize: "9px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
+                                <span style={{ fontWeight: 700, fontSize: "9px", textTransform: "uppercase", color: "#4b5563" }}>Tahap Verifikasi:</span>
+                                <span style={{ padding: "1px 5px", fontSize: "8px", fontWeight: 800, textTransform: "uppercase", borderRadius: "3px", backgroundColor: page.inspection.verificationStage === "akhir" ? "#d1fae5" : "#dbeafe", color: page.inspection.verificationStage === "akhir" ? "#065f46" : "#1e40af", border: page.inspection.verificationStage === "akhir" ? "1px solid #6ee7b7" : "1px solid #93c5fd" }}>
                                   {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
                                 </span>
                               </div>
                               <div>
-                                <span style={{ fontWeight: 700, fontSize: "10px", textTransform: "uppercase", color: "#4b5563", display: "block" }}>Hasil Verifikasi:</span>
+                                <span style={{ fontWeight: 700, fontSize: "9px", textTransform: "uppercase", color: "#4b5563", display: "block" }}>Hasil Verifikasi:</span>
                                 {page.inspection.status === "approved" ? (
                                   <span style={{ fontWeight: 700, color: "#15803d" }}>✓ Disetujui (Terverifikasi)</span>
                                 ) : page.inspection.status === "needs_correction" ? (
@@ -1012,20 +1003,20 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                           </td>
 
                           {/* Location Cell */}
-                          <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word" }}>
+                          <td style={{ border: "2px solid #000000", padding: "4px 6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word" }}>
                             {lat && lng ? (
                               <div>
                                 <StaticMap
                                   lat={lat}
                                   lng={lng}
                                   className="w-full"
-                                  style={{ width: "100%", height: "180px", objectFit: "cover", display: "block", border: "2px solid #000000", borderRadius: "2px" }}
+                                  style={{ width: "100%", height: "90px", objectFit: "cover", display: "block", border: "1.5px solid #000000", borderRadius: "2px" }}
                                 />
-                                <div style={{ textAlign: "left", fontSize: "10px", backgroundColor: "#ffffff", padding: "6px 8px", border: "1px solid #000000", borderRadius: "2px", marginTop: "6px" }}>
-                                  <p style={{ fontWeight: 700, color: "#000000", margin: "0 0 2px 0", lineHeight: 1.2 }}>
+                                <div style={{ textAlign: "left", fontSize: "9px", backgroundColor: "#ffffff", padding: "3px 6px", border: "1px solid #000000", borderRadius: "2px", marginTop: "3px", lineHeight: 1.2 }}>
+                                  <p style={{ fontWeight: 700, color: "#000000", margin: "0 0 1px 0" }}>
                                     📍 {page.inspection.location?.address?.street || page.inspection.location?.address?.name || "Lokasi Inspeksi"}
                                   </p>
-                                  <p style={{ color: "#374151", margin: "0 0 2px 0" }}>
+                                  <p style={{ color: "#374151", margin: "0 0 1px 0" }}>
                                     {page.inspection.location?.address?.city || ""}, {page.inspection.location?.address?.province || ""}
                                   </p>
                                   <p style={{ fontFamily: "monospace", color: "#1d4ed8", fontWeight: 700, margin: 0 }}>
@@ -1034,7 +1025,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                                 </div>
                               </div>
                             ) : (
-                              <div style={{ padding: "40px 10px", textAlign: "center", color: "#9ca3af", fontStyle: "italic", fontSize: "11px" }}>
+                              <div style={{ padding: "20px 6px", textAlign: "center", color: "#9ca3af", fontStyle: "italic", fontSize: "10px" }}>
                                 Lokasi Tidak Tersedia
                               </div>
                             )}
@@ -1047,8 +1038,8 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               </table>
 
               {/* Footer */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "8px", marginTop: "12px", fontSize: "11px", color: "#4b5563", fontWeight: 500 }}>
-                <span>Dokumen Resmi Hasil Verifikasi Kontainer · Generated: {new Date().toLocaleString("id-ID")}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "6px", marginTop: "8px", fontSize: "10px", color: "#4b5563", fontWeight: 500 }}>
+                <span>Dokumen Resmi Hasil Verifikasi · Generated: {new Date().toLocaleString("id-ID")}</span>
                 <span style={{ fontWeight: 700, color: "#000000" }}>Halaman {pageIdx + 1} dari {totalExportPages}</span>
               </div>
             </div>

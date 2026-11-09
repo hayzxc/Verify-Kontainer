@@ -9,6 +9,12 @@ export const SignupSchema = z.object({
     }),
 });
 
+export const UpdateUserRoleSchema = z.object({
+    role: z.enum(["admin", "user", "verificator"], {
+        errorMap: () => ({ message: "Peran harus berupa admin, user, atau verificator" }),
+    }),
+});
+
 export const InspectionSchema = z.object({
     shipperName: z.string().min(1, "Shipper name is required"),
     commodityType: z.string().min(1, "Commodity type is required"),
