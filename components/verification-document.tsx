@@ -160,6 +160,10 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         })
       )
 
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 150))
 
       // 2. Dynamically import html2canvas-pro and jsPDF
@@ -263,7 +267,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
           <style>
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
             @page { size: A4 portrait; margin: 6mm; }
-            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #000; background: #fff; }
+            body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; color: #000; background: #fff; }
             .pdf-export-page { width: 100% !important; max-width: 794px; margin: 0 auto; page-break-after: always; break-after: page; }
             .pdf-export-page:last-child { page-break-after: avoid; break-after: auto; }
             table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; border: 2px solid #000; }
@@ -894,13 +898,16 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                 backgroundColor: "#ffffff",
                 color: "#000000",
                 padding: "12px 16px",
-                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontFamily: "Arial, Helvetica, sans-serif",
+                letterSpacing: "0.15px",
+                fontKerning: "none",
+                fontVariantLigatures: "none",
                 position: "relative",
               }}
             >
               {/* Header */}
               <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "4px", marginBottom: "6px" }}>
-                <h1 style={{ fontSize: "17px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
+                <h1 style={{ fontSize: "17px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
                   Dokumen Verifikasi
                 </h1>
               </div>
@@ -909,15 +916,15 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "6px 12px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 800, fontSize: "12px", color: "#facc15", fontFamily: "monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                    <span style={{ fontWeight: 700, fontSize: "12px", color: "#facc15", fontFamily: "'Courier New', Courier, monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
                       KONTAINER #{page.insIdx + 1}: {page.inspection.containerNumber || "TANPA NOMOR"}
                     </span>
                     {page.inspection.verificationStage === "akhir" ? (
-                      <span style={{ padding: "2px 6px", fontSize: "9px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#059669", color: "#ffffff", border: "1px solid #34d399", letterSpacing: "0.5px" }}>
+                      <span style={{ padding: "2px 6px", fontSize: "9px", fontWeight: 700, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#059669", color: "#ffffff", border: "1px solid #34d399", letterSpacing: "0.4px" }}>
                         VERIFIKASI AKHIR
                       </span>
                     ) : (
-                      <span style={{ padding: "2px 6px", fontSize: "9px", fontWeight: 900, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #60a5fa", letterSpacing: "0.5px" }}>
+                      <span style={{ padding: "2px 6px", fontSize: "9px", fontWeight: 700, textTransform: "uppercase", borderRadius: "3px", backgroundColor: "#2563eb", color: "#ffffff", border: "1px solid #60a5fa", letterSpacing: "0.4px" }}>
                         VERIFIKASI AWAL
                       </span>
                     )}
@@ -940,9 +947,9 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000" }}>
                 <thead>
                   <tr style={{ backgroundColor: "#d1d5db", color: "#000000", borderBottom: "2px solid #000000" }}>
-                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "34%" }}>Photos</th>
-                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "36%" }}>Information</th>
-                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "30%" }}>Location</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "34%" }}>Photos</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "36%" }}>Information</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "30%" }}>Location</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -993,7 +1000,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             <div style={{ marginTop: "4px", paddingTop: "4px", borderTop: "1px solid #d1d5db", fontSize: "9px" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3px" }}>
                                 <span style={{ fontWeight: 700, fontSize: "9px", textTransform: "uppercase", color: "#4b5563" }}>Tahap Verifikasi:</span>
-                                <span style={{ padding: "1px 5px", fontSize: "8px", fontWeight: 800, textTransform: "uppercase", borderRadius: "3px", backgroundColor: page.inspection.verificationStage === "akhir" ? "#d1fae5" : "#dbeafe", color: page.inspection.verificationStage === "akhir" ? "#065f46" : "#1e40af", border: page.inspection.verificationStage === "akhir" ? "1px solid #6ee7b7" : "1px solid #93c5fd" }}>
+                                <span style={{ padding: "1px 5px", fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3px", borderRadius: "3px", backgroundColor: page.inspection.verificationStage === "akhir" ? "#d1fae5" : "#dbeafe", color: page.inspection.verificationStage === "akhir" ? "#065f46" : "#1e40af", border: page.inspection.verificationStage === "akhir" ? "1px solid #6ee7b7" : "1px solid #93c5fd" }}>
                                   {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}
                                 </span>
                               </div>
@@ -1027,7 +1034,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                                   <p style={{ color: "#374151", margin: "0 0 1px 0" }}>
                                     {page.inspection.location?.address?.city || ""}, {page.inspection.location?.address?.province || ""}
                                   </p>
-                                  <p style={{ fontFamily: "monospace", color: "#1d4ed8", fontWeight: 700, margin: 0 }}>
+                                  <p style={{ fontFamily: "'Courier New', Courier, monospace", color: "#1d4ed8", fontWeight: 700, margin: 0 }}>
                                     {lat.toFixed(6)}, {lng.toFixed(6)}
                                   </p>
                                 </div>
