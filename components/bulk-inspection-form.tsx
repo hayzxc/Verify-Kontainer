@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type ChangeEvent, type FormEvent } from "react"
+import { useState, useCallback, type ChangeEvent, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,16 +10,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PhotoUpload } from "./photo-upload"
 import { LocationTracker } from "./location-tracker"
 import { useAuth } from "@/lib/auth-context"
-import { MapPin, Camera, TreePine, Upload, FileText, ImagePlus, Calendar } from "lucide-react"
+import { MapPin, Camera, TreePine, Upload, ImagePlus, Calendar } from "lucide-react"
 import type { BulkInspectionData, LocationData, PhotoValue } from "@/types/inspection"
 
 interface BulkInspectionFormProps {
-    onSave: (data: BulkInspectionData) => void
+    onSave: (data: BulkInspectionData) => Promise<void> | void
 }
 
 export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
     const { user } = useAuth()
     const isVerificatorOrAdmin = user?.role === "verificator" || user?.role === "admin"
+
+    const [uploadingTypes, setUploadingTypes] = useState<Set<string>>(new Set())
+    const handleUploadingChange = useCallback((photoType: string, isUploading: boolean) => {
+        setUploadingTypes((prev) => {
+            const next = new Set(prev)
+            if (isUploading) next.add(photoType)
+            else next.delete(photoType)
+            return next
+        })
+    }, [])
+    const isUploadingPhotos = uploadingTypes.size > 0
 
     const toLocalDatetimeString = (date: Date = new Date()) => {
         const pad = (n: number) => String(n).padStart(2, "0")
@@ -31,8 +42,7 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
         return `${year}-${month}-${day}T${hours}:${minutes}`
     }
 
-    const [customDateTime, setCustomDateTime] = useState<string>(() => toLocalDatetimeString(new Date()))
-    const [formData, setFormData] = useState<Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string }>({
+    const createInitialFormState = (): Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string } => ({
         shipperName: "",
         commodityType: "",
         inspectionLocationType: "",
@@ -47,10 +57,14 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
             ispm: null,
             stacking: null,
             slicing: null,
+            additionalPhotos: [],
         },
         stackingDescription: "",
         slicingDescription: "",
     })
+
+    const [customDateTime, setCustomDateTime] = useState<string>(() => toLocalDatetimeString(new Date()))
+    const [formData, setFormData] = useState<Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string }>(createInitialFormState)
 
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -59,12 +73,12 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
-    const handlePhotoCapture = (photoType: string, photo: PhotoValue) => {
+    const handlePhotoCapture = useCallback((photoType: string, photo: PhotoValue) => {
         setFormData((prev) => ({
             ...prev,
             photos: { ...prev.photos, [photoType]: photo },
         }))
-    }
+    }, [])
 
     const handleLocationUpdate = (location: LocationData) => {
         setFormData((prev) => ({ ...prev, location }))
@@ -75,10 +89,6 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
         if (!file) return
 
         const text = await file.text()
-        // Simple split by newline and filter empty
-        // If it's CSV, we might need more robust parsing, but for now assume list of numbers or "column1, column2" where we try to find the container number column?
-        // Let's assume simple text file with one container per line for now.
-        // Or if CSV, we treat it as text and let user edit.
         setFormData(prev => ({ ...prev, containerNumbersText: text }))
     }
 
@@ -106,12 +116,29 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
             return
         }
 
+        if (isUploadingPhotos) {
+            alert("Mohon tunggu sebentar, foto sedang diunggah ke cloud storage...")
+            return
+        }
+
+        const hasUnuploadedPhotos = Object.values(formData.photos || {}).some((val) => {
+            if (!val) return false
+            if (typeof val === "string") return val.startsWith("data:")
+            if (Array.isArray(val)) return val.some((v) => typeof v === "string" && v.startsWith("data:"))
+            return false
+        })
+
+        if (hasUnuploadedPhotos) {
+            alert("Beberapa foto gagal diunggah ke cloud storage. Silakan hapus dan ambil/unggah ulang foto yang bermasalah sebelum menyimpan.")
+            return
+        }
+
         setIsSubmitting(true)
 
         const targetDate = isVerificatorOrAdmin && customDateTime ? new Date(customDateTime) : new Date()
 
         const bulkData: BulkInspectionData = {
-            shipperName: formData.shipperName,
+            shipperName: formData.shipperName.trim(),
             commodityType: formData.commodityType,
             inspectionLocationType: formData.inspectionLocationType,
             inspectionLocationName: formData.inspectionLocationName,
@@ -127,6 +154,8 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
 
         try {
             await onSave(bulkData)
+            setFormData(createInitialFormState())
+            setCustomDateTime(toLocalDatetimeString(new Date()))
         } catch (error) {
             console.error("Error preparing bulk inspection:", error)
         } finally {
@@ -352,6 +381,7 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                     photoType="shipper"
                                     photo={formData.photos.shipper || null}
                                     onCapture={handlePhotoCapture}
+                                    onUploadingChange={handleUploadingChange}
                                 />
                                 {/* No Container Number Photo here */}
                                 <PhotoUpload
@@ -359,12 +389,14 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                     photoType="commodity"
                                     photo={formData.photos.commodity || null}
                                     onCapture={handlePhotoCapture}
+                                    onUploadingChange={handleUploadingChange}
                                 />
                                 <PhotoUpload
                                     label="Foto ISPM"
                                     photoType="ispm"
                                     photo={formData.photos.ispm || null}
                                     onCapture={handlePhotoCapture}
+                                    onUploadingChange={handleUploadingChange}
                                 />
                             </div>
                         </div>
@@ -382,6 +414,7 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                             photoType="stacking"
                                             photo={formData.photos.stacking || null}
                                             onCapture={handlePhotoCapture}
+                                            onUploadingChange={handleUploadingChange}
                                         />
                                         <div>
                                             <Label htmlFor="stackingDescription">Deskripsi Stacking</Label>
@@ -402,6 +435,7 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                             photoType="slicing"
                                             photo={formData.photos.slicing || null}
                                             onCapture={handlePhotoCapture}
+                                            onUploadingChange={handleUploadingChange}
                                         />
                                         <div>
                                             <Label htmlFor="slicingDescription">Deskripsi Perforasi</Label>
@@ -433,6 +467,7 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                                 photoType="additionalPhotos"
                                 photo={formData.photos.additionalPhotos || null}
                                 onCapture={handlePhotoCapture}
+                                onUploadingChange={handleUploadingChange}
                                 maxPhotos={10}
                             />
                         </div>
@@ -446,8 +481,8 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                         </div>
 
                         <div className="flex gap-3 pt-4 border-t border-border">
-                            <Button type="submit" disabled={isSubmitting} className="flex-1">
-                                {isSubmitting ? "Memproses..." : "Buat Inspeksi Massal"}
+                            <Button type="submit" disabled={isSubmitting || isUploadingPhotos} className="flex-1">
+                                {isUploadingPhotos ? "Mengunggah Foto..." : isSubmitting ? "Memproses..." : "Buat Inspeksi Massal"}
                             </Button>
                         </div>
                     </form>

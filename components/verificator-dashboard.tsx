@@ -15,8 +15,9 @@ import { InspectionFilters, type FilterState } from "@/components/inspection-fil
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { InspectionForm } from "@/components/inspection-form"
+import { BulkInspectionForm } from "@/components/bulk-inspection-form"
 import { VerificationDocument } from "@/components/verification-document"
-import type { Inspection, InspectionData } from "@/types/inspection"
+import type { BulkInspectionData, Inspection, InspectionData } from "@/types/inspection"
 
 const MAX_SELECTION = 4
 
@@ -166,6 +167,44 @@ export function VerificatorDashboard({ user }: { user: User }) {
     } catch (error: any) {
       console.error("Error saving inspection:", error)
       alert(error.message || "Gagal menyimpan data. Silakan coba lagi.")
+      throw error
+    }
+  }
+
+  const handleSaveBulkInspection = async (bulkData: BulkInspectionData) => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const res = await fetch("/api/inspections/bulk", {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({
+          ...bulkData,
+          createdBy: user.name,
+        }),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null)
+        const errorMsg = errData?.error?.message || errData?.message || `Gagal menyimpan inspeksi massal (Status ${res.status}). Silakan coba lagi.`
+        throw new Error(errorMsg)
+      }
+
+      const resJson = await res.json()
+      const createdList: Inspection[] = resJson?.data?.inspections || []
+      const count: number = resJson?.data?.count || createdList.length
+      if (createdList.length > 0) {
+        const createdIds = new Set(createdList.map((i) => i.id))
+        setInspections((prev) => [...createdList, ...prev.filter((i) => !createdIds.has(i.id))])
+      }
+      alert(`${count} inspeksi massal berhasil dikirim ke Admin untuk verifikasi!`)
+      setActiveTab("history")
+    } catch (error: any) {
+      console.error("Error saving bulk inspection:", error)
+      alert(error.message || "Gagal menyimpan inspeksi massal. Silakan coba lagi.")
       throw error
     }
   }
@@ -446,8 +485,9 @@ export function VerificatorDashboard({ user }: { user: User }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="form">Inspeksi Baru</TabsTrigger>
+            <TabsTrigger value="bulk">Inspeksi Massal</TabsTrigger>
             <TabsTrigger value="history">Inspeksiku</TabsTrigger>
           </TabsList>
 
@@ -503,6 +543,10 @@ export function VerificatorDashboard({ user }: { user: User }) {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="bulk" className="mt-8">
+            <BulkInspectionForm onSave={handleSaveBulkInspection} />
           </TabsContent>
 
           <TabsContent value="history" className="mt-8">

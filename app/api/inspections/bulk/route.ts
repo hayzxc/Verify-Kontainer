@@ -10,6 +10,8 @@ const BulkInspectionSchema = z.object({
     shipperName: z.string().min(1, "Shipper name is required"),
     commodityType: z.string().min(1, "Commodity type is required"),
     containerNumbers: z.array(z.string().min(1)).min(1, "At least one container number is required"),
+    inspectionLocationType: z.string().optional(),
+    inspectionLocationName: z.string().optional(),
     notes: z.string().optional(),
     stackingDescription: z.string().optional(),
     slicingDescription: z.string().optional(),
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
         const rateLimitResponse = checkRateLimit(req, RATE_LIMITS.submission, "inspection-bulk-post")
         if (rateLimitResponse) return rateLimitResponse
 
-        const session = await verifySession()
+        const session = await verifySession(req)
         if (!session) {
             return apiError("Unauthorized", 401)
         }
@@ -42,6 +44,8 @@ export async function POST(req: Request) {
             shipperName,
             commodityType,
             containerNumbers,
+            inspectionLocationType,
+            inspectionLocationName,
             photos,
             location,
             notes,
@@ -53,7 +57,15 @@ export async function POST(req: Request) {
         } = result.data
 
         const isPrivileged = session.role === "verificator" || session.role === "admin"
-        const customDate = isPrivileged && createdAt ? new Date(createdAt) : undefined
+        let customDate: Date | undefined
+        if (isPrivileged && createdAt) {
+            const parsedDate = new Date(createdAt)
+            if (!isNaN(parsedDate.getTime())) {
+                customDate = parsedDate
+            }
+        }
+
+        const inspectorName = createdBy || session.name || "Unknown User"
 
         // Use $transaction with individual creates to get IDs for notifications
         const inspections = await db.$transaction(
@@ -63,12 +75,14 @@ export async function POST(req: Request) {
                         shipperName,
                         commodityType,
                         containerNumber: num,
+                        inspectionLocationType: inspectionLocationType || null,
+                        inspectionLocationName: inspectionLocationName || null,
                         verificationStage: verificationStage || "awal",
                         notes,
                         stackingDescription,
                         moistureDescription: slicingDescription,
                         status: "pending",
-                        createdBy: createdBy || "Unknown User",
+                        createdBy: inspectorName,
                         createdAt: customDate,
                         location: location || {},
                         photos: {
@@ -79,25 +93,32 @@ export async function POST(req: Request) {
                     select: {
                         id: true,
                         containerNumber: true,
+                        inspectionLocationType: true,
+                        inspectionLocationName: true,
+                        verificationStage: true,
                         status: true,
                         shipperName: true,
                         commodityType: true,
+                        notes: true,
+                        location: true,
+                        createdBy: true,
                         createdAt: true,
                     },
                 })
             )
         )
 
-        // Notify all admins about the bulk submission
-        const inspectorName = createdBy || "Unknown User"
-        for (const insp of inspections) {
-            await notifyAdmins(
-                "inspection_submitted",
-                "Inspeksi Baru (Bulk)",
-                `Inspeksi baru dari ${inspectorName} untuk ${shipperName} — ${insp.containerNumber}`,
-                insp.id
+        // Notify all admins about the bulk submission in background (non-blocking)
+        void Promise.allSettled(
+            inspections.map((insp) =>
+                notifyAdmins(
+                    "inspection_submitted",
+                    "Inspeksi Baru (Bulk)",
+                    `Inspeksi baru dari ${inspectorName} untuk ${shipperName} — ${insp.containerNumber}`,
+                    insp.id
+                )
             )
-        }
+        )
 
         return apiSuccess({ count: inspections.length, inspections }, undefined, 201)
     } catch (error) {
