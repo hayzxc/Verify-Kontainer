@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { LogOut, Users, FileText, Container, Clock, CheckCircle, AlertCircle, Eye, Trash2, TrendingUp, FileSpreadsheet, Loader2 } from "lucide-react"
+import { LogOut, Users, FileText, Container, Clock, CheckCircle, AlertCircle, Eye, Trash2, TrendingUp, FileSpreadsheet, Loader2, X } from "lucide-react"
 import { NotificationBell } from "@/components/notification-bell"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { InspectionFilters, type FilterState } from "@/components/inspection-filters"
@@ -31,6 +31,7 @@ import { UserManagement } from "@/components/user-management"
 import type { Inspection, InspectionData } from "@/types/inspection"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -764,7 +765,7 @@ export function AdminDashboard({ user }: { user: User }) {
         </Tabs>
 
         <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-          <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-xl max-h-[calc(100dvh_-_env(safe-area-inset-top,0px)_-_env(safe-area-inset-bottom,0px)_-_3.5rem)] sm:max-h-[90dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-primary" />
@@ -865,18 +866,36 @@ export function AdminDashboard({ user }: { user: User }) {
           </DialogContent>
         </Dialog>
         <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
-          <DialogContent className="max-w-[96vw] sm:max-w-[920px] w-full max-h-[94vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
-            <DialogHeader className="pr-6 pb-1">
-              <DialogTitle className="text-base sm:text-lg">
-                Pratinjau Dokumen ({previewInspections.length} item{previewInspections.length > 1 ? "s" : ""})
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                Tinjau dan cetak dokumen verifikasi untuk inspeksi yang dipilih.
-              </DialogDescription>
-            </DialogHeader>
-            {previewInspections.length > 0 && (
-              <VerificationDocument inspections={previewInspections} />
-            )}
+          <DialogContent
+            showCloseButton={false}
+            className="flex flex-col gap-0 overflow-hidden p-0 max-w-[96vw] sm:max-w-[920px] w-full max-h-[calc(100dvh_-_env(safe-area-inset-top,0px)_-_env(safe-area-inset-bottom,0px)_-_3.5rem)] sm:max-h-[90dvh]"
+          >
+            <div className="shrink-0 flex items-start justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-border bg-background">
+              <DialogHeader className="text-left gap-1">
+                <DialogTitle className="text-base sm:text-lg">
+                  Pratinjau Dokumen ({previewInspections.length} item{previewInspections.length > 1 ? "s" : ""})
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
+                  Tinjau dan cetak dokumen verifikasi untuk inspeksi yang dipilih.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 size-10 sm:size-9 rounded-full"
+                  aria-label="Tutup pratinjau dokumen"
+                >
+                  <X className="h-5 w-5 sm:h-4 sm:w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6">
+              {previewInspections.length > 0 && (
+                <VerificationDocument inspections={previewInspections} />
+              )}
+            </div>
           </DialogContent>
         </Dialog>
 

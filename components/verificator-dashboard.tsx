@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import type { User } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -768,18 +768,36 @@ export function VerificatorDashboard({ user }: { user: User }) {
         )}
 
         <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
-          <DialogContent className="max-w-[96vw] sm:max-w-[920px] w-full max-h-[94vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-6">
-            <DialogHeader className="pr-6 pb-1">
-              <DialogTitle className="text-base sm:text-lg">Pratinjau Dokumen</DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                {documentInspections.length > 1
-                  ? `Dokumen verifikasi untuk ${documentInspections.length} kontainer`
-                  : "Tinjau dan cetak dokumen verifikasi."}
-              </DialogDescription>
-            </DialogHeader>
-            {documentInspections.length > 0 && (
-              <VerificationDocument inspections={documentInspections} />
-            )}
+          <DialogContent
+            showCloseButton={false}
+            className="flex flex-col gap-0 overflow-hidden p-0 max-w-[96vw] sm:max-w-[920px] w-full max-h-[calc(100dvh_-_env(safe-area-inset-top,0px)_-_env(safe-area-inset-bottom,0px)_-_3.5rem)] sm:max-h-[90dvh]"
+          >
+            <div className="shrink-0 flex items-start justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-border bg-background">
+              <DialogHeader className="text-left gap-1">
+                <DialogTitle className="text-base sm:text-lg">Pratinjau Dokumen</DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm">
+                  {documentInspections.length > 1
+                    ? `Dokumen verifikasi untuk ${documentInspections.length} kontainer`
+                    : "Tinjau dan cetak dokumen verifikasi."}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 size-10 sm:size-9 rounded-full"
+                  aria-label="Tutup pratinjau dokumen"
+                >
+                  <X className="h-5 w-5 sm:h-4 sm:w-4" />
+                </Button>
+              </DialogClose>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-6">
+              {documentInspections.length > 0 && (
+                <VerificationDocument inspections={documentInspections} />
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </main>
