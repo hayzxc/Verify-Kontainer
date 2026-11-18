@@ -210,14 +210,22 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
         const imgData = canvas.toDataURL("image/jpeg", 0.96)
         const renderedHeightMm = (canvas.height / canvas.width) * contentWidthMm
-        const finalHeightMm = Math.min(renderedHeightMm, maxContentHeightMm)
+        let finalWidthMm = contentWidthMm
+        let finalHeightMm = renderedHeightMm
+        let offsetXMm = marginMm
+
+        if (renderedHeightMm > maxContentHeightMm) {
+          finalHeightMm = maxContentHeightMm
+          finalWidthMm = (canvas.width / canvas.height) * finalHeightMm
+          offsetXMm = (pageWidthMm - finalWidthMm) / 2
+        }
 
         pdf.addImage(
           imgData,
           "JPEG",
+          offsetXMm,
           marginMm,
-          marginMm,
-          contentWidthMm,
+          finalWidthMm,
           finalHeightMm,
           undefined,
           "FAST"
@@ -254,13 +262,13 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
           <title>Print Dokumen Verifikasi</title>
           <style>
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-            @page { size: portrait; margin: 6mm; }
-            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 10px; color: #000; background: #fff; }
-            .pdf-export-page { page-break-after: always; margin-bottom: 20px; }
-            .pdf-export-page:last-child { page-break-after: avoid; }
-            table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; border: 2px solid #000; }
-            th { background-color: #d1d5db; color: #000000; border: 2px solid #000000; padding: 8px; font-weight: 800; text-align: center; font-size: 12px; }
-            td { border: 2px solid #000000; padding: 8px; vertical-align: top; word-break: break-word; }
+            @page { size: A4 portrait; margin: 6mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #000; background: #fff; }
+            .pdf-export-page { width: 100% !important; max-width: 794px; margin: 0 auto; page-break-after: always; break-after: page; }
+            .pdf-export-page:last-child { page-break-after: avoid; break-after: auto; }
+            table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; border: 2px solid #000; }
+            th { background-color: #d1d5db; color: #000000; border: 2px solid #000000; padding: 5px 6px; font-weight: 800; text-align: center; font-size: 11px; }
+            td { border: 2px solid #000000; padding: 6px 8px; vertical-align: top; word-break: break-word; }
             img { max-width: 100%; object-fit: cover; display: block; }
           </style>
         </head>
@@ -541,13 +549,13 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                         <div className="p-3 space-y-3">
                           {/* 1. PHOTO */}
                           <div>
-                            <div className="relative aspect-[4/3] w-full max-h-72 bg-black rounded-md overflow-hidden border-2 border-black">
+                            <div className="w-full bg-white rounded-md border border-gray-300 py-2 px-3 flex items-center justify-center">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={row.src}
                                 alt={row.label}
                                 crossOrigin="anonymous"
-                                className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                                className="h-[260px] sm:h-[300px] w-auto min-w-[150px] max-w-[225px] object-cover border border-black/80 shadow-xs cursor-pointer hover:opacity-95 transition-opacity block mx-auto"
                                 onClick={() => window.open(row.src, "_blank")}
                                 title="Klik untuk membuka foto ukuran penuh"
                               />
@@ -716,10 +724,10 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                   <table className="w-full text-xs border-collapse table-fixed border-2 border-black">
                     <thead>
                       <tr className="bg-gray-300 text-black border-b-2 border-black">
-                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[36%]" style={{ width: "36%" }}>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[34%]" style={{ width: "34%" }}>
                           Photos
                         </th>
-                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[34%]" style={{ width: "34%" }}>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[36%]" style={{ width: "36%" }}>
                           Information
                         </th>
                         <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[30%]" style={{ width: "30%" }}>
@@ -761,19 +769,19 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                       ) : (
                         page.rows.map((row, rIdx) => (
                           <tr key={`a4-row-${pageIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid photo-row">
-                            {/* PHOTOS COLUMN (LEFT) */}
-                            <td className="border-2 border-black p-1.5 align-top text-center bg-gray-50/50">
-                              <div className="w-full">
+                            {/* PHOTOS COLUMN (LEFT - Portrait Rectangular Layout) */}
+                            <td className="border-2 border-black p-1.5 align-middle text-center bg-white">
+                              <div className="flex flex-col items-center justify-center w-full">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={row.src}
                                   alt={row.label}
                                   crossOrigin="anonymous"
-                                  className="w-full h-32 sm:h-36 object-cover border border-black block rounded-xs bg-black cursor-pointer hover:opacity-95 transition-opacity"
+                                  className="h-[192px] w-auto min-w-[108px] max-w-[150px] object-cover border border-black/80 block bg-white shadow-xs cursor-pointer hover:opacity-95 transition-opacity mx-auto"
                                   onClick={() => window.open(row.src, "_blank")}
                                   title="Klik untuk membuka foto ukuran/resolusi penuh"
                                 />
-                                <span className="block text-[9px] font-bold text-black uppercase mt-1">
+                                <span className="block text-[9px] font-bold text-black uppercase mt-1 leading-tight">
                                   {row.label}
                                 </span>
                               </div>
@@ -821,7 +829,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                                   <StaticMap
                                     lat={lat}
                                     lng={lng}
-                                    className="w-full h-24 sm:h-28 object-cover border border-black block rounded-xs bg-gray-200"
+                                    className="w-full h-[130px] object-cover border border-black block rounded-xs bg-gray-200"
                                   />
                                   <div className="text-left text-[9px] font-sans bg-white p-1.5 border border-black rounded-xs space-y-0.5">
                                     <p className="font-bold text-black leading-tight line-clamp-1">
@@ -859,7 +867,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         </div>
       </div>
 
-      {/* 3. DEDICATED OFF-SCREEN PDF EXPORT CONTAINER (Fixed 1120px, Zero-Cut A4)  */}
+      {/* 3. DEDICATED OFF-SCREEN PDF EXPORT CONTAINER (Fixed 794px A4 Portrait, 4 Rows Per Page) */}
       {/* ========================================================================= */}
       <div
         ref={exportContainerRef}
@@ -885,23 +893,23 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                 boxSizing: "border-box",
                 backgroundColor: "#ffffff",
                 color: "#000000",
-                padding: "16px 18px",
+                padding: "12px 16px",
                 fontFamily: "system-ui, -apple-system, sans-serif",
                 position: "relative",
               }}
             >
               {/* Header */}
-              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "6px", marginBottom: "8px" }}>
-                <h1 style={{ fontSize: "18px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
+              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "4px", marginBottom: "6px" }}>
+                <h1 style={{ fontSize: "17px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
                   Dokumen Verifikasi
                 </h1>
               </div>
 
               {/* Container Banner */}
-              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "8px 12px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "6px 12px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 800, fontSize: "13px", color: "#facc15", fontFamily: "monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                    <span style={{ fontWeight: 800, fontSize: "12px", color: "#facc15", fontFamily: "monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
                       KONTAINER #{page.insIdx + 1}: {page.inspection.containerNumber || "TANPA NOMOR"}
                     </span>
                     {page.inspection.verificationStage === "akhir" ? (
@@ -914,7 +922,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: "10px", color: "#e5e7eb", marginTop: "3px" }}>
+                  <div style={{ fontSize: "10px", color: "#e5e7eb", marginTop: "2px" }}>
                     <span>• Shipper: <strong style={{ color: "#ffffff" }}>{page.inspection.shipperName}</strong></span>
                     <span style={{ margin: "0 6px" }}>•</span>
                     <span>Komoditi: <strong style={{ color: "#ffffff", textTransform: "capitalize" }}>{page.inspection.commodityType}</strong></span>
@@ -932,9 +940,9 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000" }}>
                 <thead>
                   <tr style={{ backgroundColor: "#d1d5db", color: "#000000", borderBottom: "2px solid #000000" }}>
-                    <th style={{ border: "2px solid #000000", padding: "5px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "36%" }}>Photos</th>
-                    <th style={{ border: "2px solid #000000", padding: "5px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "34%" }}>Information</th>
-                    <th style={{ border: "2px solid #000000", padding: "5px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "30%" }}>Location</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "34%" }}>Photos</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "36%" }}>Information</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 900, fontSize: "11px", width: "30%" }}>Location</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -957,16 +965,16 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                       const lng = page.inspection.location?.longitude
                       return (
                         <tr key={`prow-${rIdx}`} style={{ borderBottom: "2px solid #000000" }}>
-                          {/* Photo Cell (Compact for 4-row layout) */}
-                          <td style={{ border: "2px solid #000000", padding: "4px 6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb" }}>
+                          {/* Photo Cell (Portrait Rectangular Layout fitted for 4 rows per A4 page) */}
+                          <td style={{ border: "2px solid #000000", padding: "6px 8px", verticalAlign: "middle", textAlign: "center", backgroundColor: "#ffffff" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={row.src}
                               alt={row.label}
                               crossOrigin="anonymous"
-                              style={{ width: "100%", height: "135px", objectFit: "cover", display: "block", border: "1.5px solid #000000", borderRadius: "2px", backgroundColor: "#000000" }}
+                              style={{ height: "192px", width: "auto", minWidth: "108px", maxWidth: "150px", objectFit: "cover", display: "block", margin: "0 auto", border: "1px solid #1f2937", backgroundColor: "#ffffff" }}
                             />
-                            <span style={{ display: "block", fontSize: "9px", fontWeight: 700, color: "#000000", textTransform: "uppercase", marginTop: "3px", lineHeight: "1.2" }}>
+                            <span style={{ display: "block", fontSize: "9px", fontWeight: 700, color: "#000000", textTransform: "uppercase", marginTop: "4px", lineHeight: "1.2" }}>
                               {row.label}
                             </span>
                           </td>
@@ -1003,16 +1011,16 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                           </td>
 
                           {/* Location Cell */}
-                          <td style={{ border: "2px solid #000000", padding: "4px 6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word" }}>
+                          <td style={{ border: "2px solid #000000", padding: "6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word" }}>
                             {lat && lng ? (
                               <div>
                                 <StaticMap
                                   lat={lat}
                                   lng={lng}
                                   className="w-full"
-                                  style={{ width: "100%", height: "90px", objectFit: "cover", display: "block", border: "1.5px solid #000000", borderRadius: "2px" }}
+                                  style={{ width: "100%", height: "130px", objectFit: "cover", display: "block", border: "1.5px solid #000000", borderRadius: "2px" }}
                                 />
-                                <div style={{ textAlign: "left", fontSize: "9px", backgroundColor: "#ffffff", padding: "3px 6px", border: "1px solid #000000", borderRadius: "2px", marginTop: "3px", lineHeight: 1.2 }}>
+                                <div style={{ textAlign: "left", fontSize: "9px", backgroundColor: "#ffffff", padding: "4px 6px", border: "1px solid #000000", borderRadius: "2px", marginTop: "4px", lineHeight: 1.25 }}>
                                   <p style={{ fontWeight: 700, color: "#000000", margin: "0 0 1px 0" }}>
                                     📍 {page.inspection.location?.address?.street || page.inspection.location?.address?.name || "Lokasi Inspeksi"}
                                   </p>
@@ -1038,7 +1046,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               </table>
 
               {/* Footer */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "6px", marginTop: "8px", fontSize: "10px", color: "#4b5563", fontWeight: 500 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "5px", marginTop: "6px", fontSize: "10px", color: "#4b5563", fontWeight: 500 }}>
                 <span>Dokumen Resmi Hasil Verifikasi · Generated: {new Date().toLocaleString("id-ID")}</span>
                 <span style={{ fontWeight: 700, color: "#000000" }}>Halaman {pageIdx + 1} dari {totalExportPages}</span>
               </div>
