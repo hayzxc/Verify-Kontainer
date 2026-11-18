@@ -42,6 +42,15 @@ const isCloudUrl = (s: string) => s.startsWith("http")
 let _entryId = 0
 const nextId = () => `photo-${++_entryId}-${Date.now()}`
 
+const buildEntriesFromPhoto = (value: PhotoValue): PhotoEntry[] =>
+  normalizePhotos(value).map((src) => ({
+    id: nextId(),
+    src,
+    isUploading: false,
+    uploadError: false,
+    isCloud: isCloudUrl(src),
+  }))
+
 export function PhotoUpload({
   label,
   photoType,
@@ -56,21 +65,21 @@ export function PhotoUpload({
   // Gallery upload is strictly restricted to admin and verificator roles; regular users must use camera
   const canUseGallery = isPrivileged && (allowGallery !== undefined ? allowGallery : true)
 
-  const [entries, setEntries] = useState<PhotoEntry[]>([])
-  const entriesRef = useRef<PhotoEntry[]>([])
+  const [entries, setEntries] = useState<PhotoEntry[]>(() => buildEntriesFromPhoto(photo))
+  const entriesRef = useRef<PhotoEntry[]>(entries)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isCamera, setIsCamera] = useState(false)
   const [isCompressing, setIsCompressing] = useState(false)
 
-  // Sync external photo prop → internal entries (only on mount / prop change from parent)
+  // Sync external photo prop → internal entries without discarding in-flight uploads on re-renders
   useEffect(() => {
     const urls = normalizePhotos(photo)
-    const currentUrls = entriesRef.current.map((e) => e.src)
+    const settledUrls = entriesRef.current.filter((e) => !e.isUploading).map((e) => e.src)
     const isSame =
-      urls.length === currentUrls.length &&
-      urls.every((u, idx) => u === currentUrls[idx])
+      urls.length === settledUrls.length &&
+      urls.every((u, idx) => u === settledUrls[idx])
 
     if (isSame) return
 
@@ -79,8 +88,8 @@ export function PhotoUpload({
       return {
         id: existing?.id || nextId(),
         src,
-        isUploading: false,
-        uploadError: false,
+        isUploading: existing?.isUploading ?? false,
+        uploadError: existing?.uploadError ?? false,
         isCloud: isCloudUrl(src),
       }
     })

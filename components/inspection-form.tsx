@@ -12,7 +12,31 @@ import { LocationTracker } from "./location-tracker"
 import { useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { MapPin, Camera, TreePine, Plus, ImagePlus, Calendar } from "lucide-react"
-import type { InspectionData, LocationData, PhotoValue } from "@/types/inspection"
+import { normalizePhotos, type InspectionData, type LocationData, type PhotoValue } from "@/types/inspection"
+
+function buildFormData(initialData?: InspectionData): InspectionData {
+  return {
+    shipperName: initialData?.shipperName ?? "",
+    commodityType: initialData?.commodityType ?? "",
+    containerNumber: initialData?.containerNumber ?? "",
+    inspectionLocationType: initialData?.inspectionLocationType ?? "",
+    inspectionLocationName: initialData?.inspectionLocationName ?? "",
+    verificationStage: initialData?.verificationStage ?? "awal",
+    notes: initialData?.notes ?? "",
+    location: initialData?.location ?? null,
+    photos: {
+      shipper: initialData?.photos?.shipper ?? null,
+      containerNumber: initialData?.photos?.containerNumber ?? null,
+      commodity: initialData?.photos?.commodity ?? null,
+      ispm: initialData?.photos?.ispm ?? null,
+      stacking: initialData?.photos?.stacking ?? null,
+      slicing: initialData?.photos?.slicing ?? null,
+      additionalPhotos: normalizePhotos(initialData?.photos?.additionalPhotos),
+    },
+    stackingDescription: initialData?.stackingDescription ?? "",
+    slicingDescription: initialData?.slicingDescription ?? "",
+  }
+}
 
 interface InspectionFormProps {
   onSave: (data: InspectionData) => Promise<void> | void
@@ -51,58 +75,14 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
       ? toLocalDatetimeString(new Date(initialData.createdAt))
       : toLocalDatetimeString(new Date())
   )
-  const [formData, setFormData] = useState<InspectionData>({
-    shipperName: "",
-    commodityType: "",
-    containerNumber: "",
-    inspectionLocationType: "",
-    inspectionLocationName: "",
-    verificationStage: "awal",
-    notes: "",
-    location: null,
-    photos: {
-      shipper: null,
-      containerNumber: null,
-      commodity: null,
-      ispm: null,
-      stacking: null,
-      slicing: null,
-    },
-    stackingDescription: "",
-    slicingDescription: "",
-  })
+  const [formData, setFormData] = useState<InspectionData>(() => buildFormData(initialData))
 
   useEffect(() => {
-    if (initialData) {
-      setFormData(prev => ({
-        ...prev,
-        ...initialData,
-        photos: initialData.photos || prev.photos
-      }))
-      if (initialData.createdAt) {
-        setCustomDateTime(toLocalDatetimeString(new Date(initialData.createdAt)))
-      }
+    setFormData(buildFormData(initialData))
+    if (initialData?.createdAt) {
+      setCustomDateTime(toLocalDatetimeString(new Date(initialData.createdAt)))
     } else {
-      setFormData({
-        shipperName: "",
-        commodityType: "",
-        containerNumber: "",
-        inspectionLocationType: "",
-        inspectionLocationName: "",
-        verificationStage: "awal",
-        notes: "",
-        location: null,
-        photos: {
-          shipper: null,
-          containerNumber: null,
-          commodity: null,
-          ispm: null,
-          stacking: null,
-          slicing: null,
-        },
-        stackingDescription: "",
-        slicingDescription: "",
-      })
+      setCustomDateTime(toLocalDatetimeString(new Date()))
     }
   }, [initialData])
 

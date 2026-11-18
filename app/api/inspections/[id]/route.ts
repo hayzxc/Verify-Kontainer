@@ -1,25 +1,40 @@
+import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { verifySession } from "@/lib/auth"
 import { notifyUser, notifyAdmins, getUserIdByName } from "@/lib/notification-helpers"
 import { apiError } from "@/lib/api-response"
+import { AdminReviewPatchSchema, InspectionResubmitSchema } from "@/lib/validations"
+
+function parseInspectionId(idString: string): number | null {
+    const id = Number(idString)
+    return Number.isInteger(id) && id > 0 ? id : null
+}
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id: idString } = await params
 
-        const session = await verifySession()
+        const session = await verifySession(req)
         if (!session) {
             return apiError("Unauthorized", 401)
         }
 
-        const id = parseInt(idString)
+        const id = parseInspectionId(idString)
+        if (!id) {
+            return apiError("Invalid inspection ID", 400)
+        }
+
         const inspection = await db.inspection.findUnique({
             where: { id },
         })
 
         if (!inspection) {
             return apiError("Inspection not found", 404)
+        }
+
+        if (session.role !== "admin" && inspection.createdBy !== session.name) {
+            return apiError("Forbidden: Anda tidak memiliki akses ke inspeksi ini", 403)
         }
 
         return NextResponse.json(inspection)
@@ -33,13 +48,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     try {
         const { id: idString } = await params
 
-        const session = await verifySession()
+        const session = await verifySession(req)
         if (!session) {
             return apiError("Unauthorized", 401)
         }
 
-        const id = parseInt(idString)
-        const body = await req.json()
+        const id = parseInspectionId(idString)
+        if (!id) {
+            return apiError("Invalid inspection ID", 400)
+        }
+
+        const body: unknown = await req.json()
 
         const currentInspection = await db.inspection.findUnique({
             where: { id },
@@ -62,24 +81,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
                 return apiError("Inspeksi hanya dapat diperbarui jika berstatus Perlu Perbaikan", 403)
             }
 
-            // Update inspection data and reset status back to 'pending' for admin re-verification
-            const updatePayload: Record<string, any> = {
-                status: "pending", // Resubmit to pending
+            const parsed = InspectionResubmitSchema.safeParse(body)
+            if (!parsed.success) {
+                return apiError(parsed.error.errors[0].message, 400)
             }
 
-            if (body.shipperName) updatePayload.shipperName = body.shipperName
-            if (body.commodityType) updatePayload.commodityType = body.commodityType
-            if (body.containerNumber !== undefined) updatePayload.containerNumber = body.containerNumber
-            if (body.inspectionLocationType !== undefined) updatePayload.inspectionLocationType = body.inspectionLocationType
-            if (body.inspectionLocationName !== undefined) updatePayload.inspectionLocationName = body.inspectionLocationName
-            if (body.verificationStage !== undefined) updatePayload.verificationStage = body.verificationStage
-            if (body.notes !== undefined) updatePayload.notes = body.notes
-            if (body.stackingDescription !== undefined) updatePayload.stackingDescription = body.stackingDescription
-            if (body.slicingDescription !== undefined) updatePayload.moistureDescription = body.slicingDescription
-            if (body.photos) updatePayload.photos = body.photos
-            if (body.location) updatePayload.location = body.location
-            if (body.createdAt && (session.role === "verificator" || session.role === "admin")) {
-                updatePayload.createdAt = new Date(body.createdAt)
+            const data = parsed.data
+            const updatePayload: Prisma.InspectionUpdateInput = {
+                status: "pending",
+            }
+
+            if (data.shipperName) updatePayload.shipperName = data.shipperName
+            if (data.commodityType) updatePayload.commodityType = data.commodityType
+            if (data.containerNumber !== undefined) updatePayload.containerNumber = data.containerNumber
+            if (data.inspectionLocationType !== undefined) updatePayload.inspectionLocationType = data.inspectionLocationType
+            if (data.inspectionLocationName !== undefined) updatePayload.inspectionLocationName = data.inspectionLocationName
+            if (data.verificationStage !== undefined) updatePayload.verificationStage = data.verificationStage
+            if (data.notes !== undefined) updatePayload.notes = data.notes
+            if (data.stackingDescription !== undefined) updatePayload.stackingDescription = data.stackingDescription
+            if (data.slicingDescription !== undefined) updatePayload.moistureDescription = data.slicingDescription
+            if (data.photos !== undefined) updatePayload.photos = data.photos as Prisma.InputJsonValue
+            if (data.location !== undefined) {
+                updatePayload.location = data.location === null
+                    ? Prisma.JsonNull
+                    : (data.location as Prisma.InputJsonValue)
+            }
+            if (data.createdAt && session.role === "verificator") {
+                const parsedDate = new Date(data.createdAt)
+                if (!Number.isNaN(parsedDate.getTime())) {
+                    updatePayload.createdAt = parsedDate
+                }
             }
 
             const updatedInspection = await db.inspection.update({
@@ -87,21 +118,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
                 data: updatePayload,
             })
 
-            // Notify admins about resubmission
             await notifyAdmins(
                 "inspection_submitted",
                 "Pengajuan Perbaikan",
-                `Inspeksi perbaikan dari ${currentInspection.createdBy} untuk ${body.shipperName || currentInspection.shipperName} telah dikirim ulang`,
+                `Inspeksi perbaikan dari ${currentInspection.createdBy} untuk ${data.shipperName || currentInspection.shipperName} telah dikirim ulang`,
                 id
             )
 
             return NextResponse.json(updatedInspection)
         }
 
-        // ADMIN FLOW: Update status & admin notes
-        const updateData: { status?: string; adminNotes?: string } = {}
-        if (body.status) updateData.status = body.status
-        if (body.adminNotes !== undefined) updateData.adminNotes = body.adminNotes
+        const parsedAdmin = AdminReviewPatchSchema.safeParse(body)
+        if (!parsedAdmin.success) {
+            return apiError(parsedAdmin.error.errors[0].message, 400)
+        }
+
+        const adminData = parsedAdmin.data
+        const updateData: Prisma.InspectionUpdateInput = {}
+        if (adminData.status) updateData.status = adminData.status
+        if (adminData.adminNotes !== undefined) updateData.adminNotes = adminData.adminNotes
 
         const inspection = await db.inspection.update({
             where: { id },
@@ -109,7 +144,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         })
 
         // Notify creator about status change
-        const newStatus = body.status
+        const newStatus = adminData.status
         if (newStatus && newStatus !== currentInspection.status) {
             const verificatorId = await getUserIdByName(currentInspection.createdBy)
 
@@ -127,7 +162,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
                         verificatorId,
                         "correction_requested",
                         "Perbaikan Diperlukan",
-                        `Admin meminta perbaikan untuk inspeksi ${currentInspection.shipperName}: ${body.adminNotes || "Silakan periksa foto/data"}`,
+                        `Admin meminta perbaikan untuk inspeksi ${currentInspection.shipperName}: ${adminData.adminNotes || "Silakan periksa foto/data"}`,
                         id
                     )
                 }
@@ -145,7 +180,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     try {
         const { id: idString } = await params
 
-        const session = await verifySession()
+        const session = await verifySession(req)
         if (!session) {
             return apiError("Unauthorized", 401)
         }
@@ -155,7 +190,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             return apiError("Forbidden", 403)
         }
 
-        const id = parseInt(idString)
+        const id = parseInspectionId(idString)
+        if (!id) {
+            return apiError("Invalid inspection ID", 400)
+        }
+
         await db.inspection.delete({
             where: { id },
         })

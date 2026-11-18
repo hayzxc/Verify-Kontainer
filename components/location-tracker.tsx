@@ -255,7 +255,7 @@ export function LocationTracker({ onLocationUpdate, location }: LocationTrackerP
           </div>
         )}
 
-        {location && (
+        {location && typeof location.latitude === "number" && typeof location.longitude === "number" && (
           <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
             <div>
               <span className="font-semibold">Koordinat:</span>

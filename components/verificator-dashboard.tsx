@@ -17,9 +17,28 @@ import { useRouter } from "next/navigation"
 import { InspectionForm } from "@/components/inspection-form"
 import { BulkInspectionForm } from "@/components/bulk-inspection-form"
 import { VerificationDocument } from "@/components/verification-document"
-import type { BulkInspectionData, Inspection, InspectionData } from "@/types/inspection"
+import { normalizePhotos, type BulkInspectionData, type Inspection, type InspectionData, type InspectionPhotos, type LocationData } from "@/types/inspection"
 
 const MAX_SELECTION = 4
+
+function normalizeInspectionPhotos(photos?: Partial<InspectionPhotos> | null): InspectionPhotos {
+  return {
+    shipper: photos?.shipper ?? null,
+    containerNumber: photos?.containerNumber ?? null,
+    commodity: photos?.commodity ?? null,
+    ispm: photos?.ispm ?? null,
+    stacking: photos?.stacking ?? null,
+    slicing: photos?.slicing ?? null,
+    additionalPhotos: normalizePhotos(photos?.additionalPhotos),
+  }
+}
+
+function normalizeLocation(location?: LocationData | null): LocationData | null {
+  if (!location || typeof location.latitude !== "number" || typeof location.longitude !== "number") {
+    return null
+  }
+  return location
+}
 
 export function VerificatorDashboard({ user }: { user: User }) {
   const [inspections, setInspections] = useState<Inspection[]>(() => {
@@ -51,6 +70,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
   const [docSelection, setDocSelection] = useState<Set<number>>(new Set())
   const [isLoadingDoc, setIsLoadingDoc] = useState(false)
   const [editingInspectionId, setEditingInspectionId] = useState<number | null>(null)
+  const [loadingEditId, setLoadingEditId] = useState<number | null>(null)
   const canCreateDocument = user.role !== "user"
 
   const { logout } = useAuth()
@@ -296,31 +316,54 @@ export function VerificatorDashboard({ user }: { user: User }) {
 
   const clearSelection = () => setDocSelection(new Set())
 
-  const handleEditResubmit = (inspection: Inspection) => {
-    setEditingInspectionId(inspection.id)
-    setInitialFormData({
-      shipperName: inspection.shipperName,
-      commodityType: inspection.commodityType,
-      containerNumber: inspection.containerNumber || "",
-      inspectionLocationType: inspection.inspectionLocationType || "",
-      inspectionLocationName: inspection.inspectionLocationName || "",
-      verificationStage: inspection.verificationStage || "awal",
-      notes: inspection.notes || "",
-      location: inspection.location,
-      photos: inspection.photos || {
-        shipper: null,
-        containerNumber: null,
-        commodity: null,
-        ispm: null,
-        stacking: null,
-        slicing: null,
-        additionalPhotos: [],
-      },
-      stackingDescription: inspection.stackingDescription || "",
-      slicingDescription: inspection.moistureDescription || "",
-    })
-    setActiveTab("form")
-    window.scrollTo({ top: 0, behavior: "smooth" })
+  const handleEditResubmit = async (inspection: Inspection) => {
+    if (loadingEditId !== null) return
+
+    setLoadingEditId(inspection.id)
+    try {
+      // List endpoint excludes photos and wood descriptions; fetch the full record before entering edit mode.
+      const res = await fetch(`/api/inspections/${inspection.id}`, {
+        credentials: "include",
+        headers: getAuthHeaders(),
+      })
+
+      if (res.status === 401) {
+        logout()
+        router.push("/login")
+        return
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null)
+        const errorMsg = errData?.error?.message || errData?.message || "Gagal memuat detail dan foto inspeksi. Silakan coba lagi."
+        alert(errorMsg)
+        return
+      }
+
+      const fullInspection: Inspection = await res.json()
+      setEditingInspectionId(fullInspection.id)
+      setInitialFormData({
+        shipperName: fullInspection.shipperName,
+        commodityType: fullInspection.commodityType,
+        containerNumber: fullInspection.containerNumber || "",
+        inspectionLocationType: fullInspection.inspectionLocationType || "",
+        inspectionLocationName: fullInspection.inspectionLocationName || "",
+        verificationStage: fullInspection.verificationStage || "awal",
+        notes: fullInspection.notes || "",
+        location: normalizeLocation(fullInspection.location),
+        photos: normalizeInspectionPhotos(fullInspection.photos),
+        stackingDescription: fullInspection.stackingDescription || "",
+        slicingDescription: fullInspection.moistureDescription || "",
+        createdAt: fullInspection.createdAt,
+      })
+      setActiveTab("form")
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    } catch (error) {
+      console.error("Failed to load full inspection for revision:", error)
+      alert("Gagal memuat detail dan foto inspeksi. Periksa koneksi Anda lalu coba lagi.")
+    } finally {
+      setLoadingEditId(null)
+    }
   }
 
   const handleDuplicate = async (inspection: Inspection) => {
@@ -644,10 +687,20 @@ export function VerificatorDashboard({ user }: { user: User }) {
                                   <Button
                                     size="sm"
                                     className="bg-amber-600 hover:bg-amber-700 text-white gap-1 text-xs sm:text-sm"
+                                    disabled={loadingEditId !== null}
                                     onClick={() => handleEditResubmit(inspection)}
                                   >
-                                    <AlertCircle className="h-3.5 w-3.5" />
-                                    Edit & Kirim Ulang
+                                    {loadingEditId === inspection.id ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        Memuat...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertCircle className="h-3.5 w-3.5" />
+                                        Edit & Kirim Ulang
+                                      </>
+                                    )}
                                   </Button>
                                 )}
                                 <Button

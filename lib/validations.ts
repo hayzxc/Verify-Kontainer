@@ -15,6 +15,12 @@ export const UpdateUserRoleSchema = z.object({
     }),
 });
 
+export const PhotoValueSchema = z.union([
+    z.string(),
+    z.array(z.string()),
+    z.null(),
+]).optional();
+
 export const InspectionSchema = z.object({
     shipperName: z.string().min(1, "Shipper name is required"),
     commodityType: z.string().min(1, "Commodity type is required"),
@@ -29,6 +35,26 @@ export const InspectionSchema = z.object({
     createdAt: z.string().optional(), // Custom inspection/upload date for verificator/admin
     location: z.any().optional(), // Using any for now as location structure can be complex, can be refined later
     photos: z.record(z.string(), z.any()).optional(), // Loose validation for photos map
+});
+
+export const InspectionResubmitSchema = z.object({
+    shipperName: z.string().min(1, "Shipper name is required").optional(),
+    commodityType: z.string().min(1, "Commodity type is required").optional(),
+    containerNumber: z.string().optional(),
+    inspectionLocationType: z.string().optional(),
+    inspectionLocationName: z.string().optional(),
+    verificationStage: z.string().optional(),
+    notes: z.string().optional(),
+    stackingDescription: z.string().optional(),
+    slicingDescription: z.string().optional(),
+    createdAt: z.string().optional(),
+    location: z.record(z.string(), z.unknown()).nullable().optional(),
+    photos: z.record(z.string(), PhotoValueSchema).optional(),
+});
+
+export const AdminReviewPatchSchema = z.object({
+    status: z.enum(["pending", "approved", "needs_correction"]).optional(),
+    adminNotes: z.string().nullable().optional(),
 });
 
 export const PaginationSchema = z.object({
