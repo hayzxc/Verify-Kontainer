@@ -13,6 +13,8 @@ node_modules
 /lib/generated/prisma
 dist/
 build/
+*.tsbuildinfo
+next-env.d.ts
 .DS_Store
 *.db
 
