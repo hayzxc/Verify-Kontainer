@@ -352,8 +352,8 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       info: inspection.stackingDescription || "Kondisi penataan dan penyusunan barang (stacking) dalam kontainer",
     },
     {
-      type: "slicing",
-      label: "Foto Slicing / Monitoring",
+      type: "perforasi",
+      label: "Foto Perforasi / Monitoring",
       photos: getPhotoUrls(inspection.photos?.slicing),
       info: inspection.moistureDescription || "Peralatan monitoring memperlihatkan alat, kipas dan selang monitoring",
     },
