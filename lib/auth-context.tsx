@@ -24,29 +24,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("currentUser")
-        return stored ? JSON.parse(stored) : null
-      } catch {
-        return null
-      }
-    }
-    return null
-  })
-  const [loading, setLoading] = useState(() => {
-    if (typeof window !== "undefined") {
-      return !localStorage.getItem("currentUser")
-    }
-    return true
-  })
+  // Keep initial SSR & client hydration state identical to prevent hydration mismatch
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
-    ; (async () => {
+    // 1. Hydrate cached user immediately for instant first-paint on returning sessions
+    try {
+      const stored = localStorage.getItem("currentUser")
+      if (stored) {
+        const parsed = JSON.parse(stored) as User
+        if (parsed?.id) {
+          setUser(parsed)
+          setLoading(false)
+        }
+      }
+    } catch {
+      localStorage.removeItem("currentUser")
+    }
+
+    // 2. Verify live session in background (also picks up Google OAuth cookie sessions)
+    ;(async () => {
       try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+        const token = localStorage.getItem("sessionToken")
         const headers: Record<string, string> = {}
         if (token) headers["Authorization"] = `Bearer ${token}`
 
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("currentUser")
           localStorage.removeItem("sessionToken")
         }
-      } catch (e) {
+      } catch {
         setUser(null)
         localStorage.removeItem("currentUser")
         localStorage.removeItem("sessionToken")

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import { verifySession } from "@/lib/auth"
 import { apiError } from "@/lib/api-response"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await verifySession()
+    const session = await verifySession(req)
     if (!session) {
       return apiError("Unauthorized", 401)
     }

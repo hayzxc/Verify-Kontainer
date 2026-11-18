@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,13 @@ function LoginFormContent() {
   const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const { login, loginWithGoogle, signup } = useAuth()
+  const { login, loginWithGoogle, signup, isAuthenticated, loading: authLoading } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace("/dashboard")
+    }
+  }, [authLoading, isAuthenticated, router])
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,7 +40,7 @@ function LoginFormContent() {
 
     try {
       await login(email, password)
-      router.push("/dashboard")
+      router.replace("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {
@@ -52,8 +58,8 @@ function LoginFormContent() {
       await signup(email, password, name, role)
       setSuccess("Account created successfully! Redirecting...")
       setTimeout(() => {
-        router.push("/dashboard")
-      }, 1500)
+        router.replace("/dashboard")
+      }, 800)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed")
     } finally {

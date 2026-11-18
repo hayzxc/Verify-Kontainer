@@ -1,24 +1,13 @@
-"use client"
+import { redirect } from "next/navigation"
+import { verifySession } from "@/lib/auth"
+import { HomeRedirector } from "@/components/home-redirector"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
+export default async function Home() {
+  // Fast server-side session check eliminates client-side waterfall for authenticated users
+  const session = await verifySession()
+  if (session) {
+    redirect("/dashboard")
+  }
 
-import { GooeyLoader } from "@/components/ui/gooey-loader"
-
-export default function Home() {
-  const { user, loading } = useAuth()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!loading) {
-      if (user) {
-        router.push("/dashboard")
-      } else {
-        router.push("/login")
-      }
-    }
-  }, [user, loading, router])
-
-  return <GooeyLoader fullScreen text="Memuat Aplikasi..." size="lg" />
+  return <HomeRedirector />
 }

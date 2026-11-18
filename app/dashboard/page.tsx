@@ -1,11 +1,24 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { AdminDashboard } from "@/components/admin-dashboard"
-import { VerificatorDashboard } from "@/components/verificator-dashboard"
 import { GooeyLoader } from "@/components/ui/gooey-loader"
+
+const AdminDashboard = dynamic(
+  () => import("@/components/admin-dashboard").then((mod) => mod.AdminDashboard),
+  {
+    loading: () => <GooeyLoader fullScreen text="Memuat Dasbor Admin..." size="lg" />,
+  }
+)
+
+const VerificatorDashboard = dynamic(
+  () => import("@/components/verificator-dashboard").then((mod) => mod.VerificatorDashboard),
+  {
+    loading: () => <GooeyLoader fullScreen text="Memuat Dasbor Verifikator..." size="lg" />,
+  }
+)
 
 export default function DashboardPage() {
   const { user, isAuthenticated, loading } = useAuth()
@@ -13,7 +26,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push("/login")
+      router.replace("/login")
     }
   }, [isAuthenticated, loading, router])
 
@@ -22,10 +35,8 @@ export default function DashboardPage() {
   }
 
   if (!user) {
-
     return null
   }
-
 
   return user.role === "admin" ? <AdminDashboard user={user} /> : <VerificatorDashboard user={user} />
 }
