@@ -150,9 +150,17 @@ export function AdminDashboard({ user }: { user: User }) {
   // Get unique verificator names for filter
   const verificatorOptions = [...new Set(inspections.map(i => i.createdBy))].filter(Boolean)
 
+  const getAuthHeaders = (includeJson = false): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+    const headers: Record<string, string> = {}
+    if (includeJson) headers["Content-Type"] = "application/json"
+    if (token) headers["Authorization"] = `Bearer ${token}`
+    return headers
+  }
+
   const handleLogout = () => {
     logout()
-    router.push("/login")
+    router.replace("/login")
   }
 
   const handleDelete = async (id: number) => {
@@ -162,6 +170,7 @@ export function AdminDashboard({ user }: { user: User }) {
       const res = await fetch(`/api/inspections/${id}`, {
         method: "DELETE",
         credentials: "include",
+        headers: getAuthHeaders(),
       })
 
       if (!res.ok) throw new Error("Failed to delete")
@@ -180,7 +189,7 @@ export function AdminDashboard({ user }: { user: User }) {
       const res = await fetch("/api/inspections", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           ...newInspection,
           createdBy: user.name,
@@ -308,7 +317,7 @@ export function AdminDashboard({ user }: { user: User }) {
       const res = await fetch(`/api/inspections/${reviewingInspection.id}`, {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           status: "approved",
           adminNotes: adminNotes || null,
@@ -338,7 +347,7 @@ export function AdminDashboard({ user }: { user: User }) {
       const res = await fetch(`/api/inspections/${reviewingInspection.id}`, {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           status: "needs_correction",
           adminNotes: adminNotes,
@@ -453,7 +462,7 @@ export function AdminDashboard({ user }: { user: User }) {
           <Card className="p-3 sm:p-4">
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-1.5 truncate">
-                <Container className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <Container className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                 <span className="truncate">Total Inspeksi</span>
               </CardTitle>
             </CardHeader>
@@ -466,7 +475,7 @@ export function AdminDashboard({ user }: { user: User }) {
           <Card className={`p-3 sm:p-4 ${pendingCount > 0 ? "border-yellow-300 bg-yellow-50/50 dark:bg-yellow-950/20" : ""}`}>
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-1.5 truncate">
-                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 flex-shrink-0" />
+                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 shrink-0" />
                 <span className="truncate">Menunggu</span>
               </CardTitle>
             </CardHeader>
@@ -479,7 +488,7 @@ export function AdminDashboard({ user }: { user: User }) {
           <Card className="p-3 sm:p-4">
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-1.5 truncate">
-                <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+                <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
                 <span className="truncate">Disetujui</span>
               </CardTitle>
             </CardHeader>
@@ -492,7 +501,7 @@ export function AdminDashboard({ user }: { user: User }) {
           <Card className="p-3 sm:p-4">
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-1.5 truncate">
-                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
                 <span className="truncate">Petugas</span>
               </CardTitle>
             </CardHeader>

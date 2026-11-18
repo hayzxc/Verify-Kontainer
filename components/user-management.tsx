@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,10 +39,22 @@ export function UserManagement() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const fetchUsers = async () => {
+  const getAuthHeaders = useCallback((includeJson = false): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+    const headers: Record<string, string> = {}
+    if (includeJson) headers["Content-Type"] = "application/json"
+    if (token) headers["Authorization"] = `Bearer ${token}`
+    return headers
+  }, [])
+
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/users", { cache: "no-store" })
+      const res = await fetch("/api/users", {
+        cache: "no-store",
+        credentials: "include",
+        headers: getAuthHeaders(),
+      })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}))
         throw new Error(errorData.error?.message || "Gagal memuat daftar pengguna")
@@ -55,7 +67,7 @@ export function UserManagement() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [getAuthHeaders])
 
   useEffect(() => {
     // Bersihkan data mockup lama di localStorage jika ada
@@ -63,7 +75,7 @@ export function UserManagement() {
       localStorage.removeItem("users")
     }
     fetchUsers()
-  }, [])
+  }, [fetchUsers])
 
   const adminCount = useMemo(() => {
     return users.filter((u) => u.role === "admin").length
@@ -106,7 +118,8 @@ export function UserManagement() {
       setSubmitting(true)
       const res = await fetch("/api/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           name: cleanName,
           email: cleanEmail,
@@ -147,6 +160,8 @@ export function UserManagement() {
 
       const res = await fetch(`/api/users/${userToDelete.id}`, {
         method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(),
       })
 
       const data = await res.json()
@@ -271,14 +286,14 @@ export function UserManagement() {
         <CardContent>
           {error && (
             <div className="mb-4 flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive animate-in fade-in-50">
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
             <div className="mb-4 flex items-start gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-700 dark:text-green-300 animate-in fade-in-50">
-              <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{success}</span>
             </div>
           )}
@@ -414,7 +429,7 @@ export function UserManagement() {
                     className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/30 px-2.5 rounded-lg transition-colors border border-transparent hover:border-border/40"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary flex-shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary shrink-0">
                         {item.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -446,7 +461,7 @@ export function UserManagement() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                       <div className="flex items-center gap-1.5">
                         <Select
                           value={item.role}

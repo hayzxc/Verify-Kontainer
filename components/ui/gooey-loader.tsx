@@ -19,7 +19,7 @@ export function GooeyLoader({
         role="status"
         aria-live="polite"
         aria-label={text || "Memuat Aplikasi"}
-        className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 via-white to-blue-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 px-6 select-none ${className}`}
+        className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-linear-to-b from-slate-50 via-white to-blue-50/70 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 px-6 select-none ${className}`}
       >
         <div className="flex flex-col items-center justify-center gap-6 animate-splash-in max-w-xs w-full">
           {/* Branded App Icon Emblem with GPU-Accelerated Pulse Ring */}
@@ -52,7 +52,7 @@ export function GooeyLoader({
           {/* Sleek GPU-Accelerated Indeterminate Progress Bar */}
           <div className="w-48 space-y-2.5">
             <div className="h-1.5 w-full rounded-full bg-slate-200/90 dark:bg-slate-800 overflow-hidden">
-              <div className="h-full w-full rounded-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-600 animate-loading-bar" />
+              <div className="h-full w-full rounded-full bg-linear-to-r from-blue-600 via-sky-500 to-blue-600 animate-loading-bar" />
             </div>
             {text && (
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center">

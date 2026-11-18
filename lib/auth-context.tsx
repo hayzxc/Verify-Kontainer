@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, useRef } from "react"
 
 export interface User {
   id: string
@@ -27,8 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Keep initial SSR & client hydration state identical to prevent hydration mismatch
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  // Tracks explicit auth transitions (login/signup/logout) so stale mount checks cannot overwrite newer state
+  const authVersionRef = useRef(0)
 
   useEffect(() => {
+    const controller = new AbortController()
+    const requestVersion = authVersionRef.current
+
     // 1. Hydrate cached user immediately for instant first-paint on returning sessions
     try {
       const stored = localStorage.getItem("currentUser")
@@ -50,24 +55,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const headers: Record<string, string> = {}
         if (token) headers["Authorization"] = `Bearer ${token}`
 
-        const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include", headers })
+        const res = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "include",
+          headers,
+          signal: controller.signal,
+        })
+
+        // Ignore stale response if login/signup/logout occurred while this request was in flight
+        if (controller.signal.aborted || authVersionRef.current !== requestVersion) {
+          return
+        }
+
         if (res.ok) {
           const userData = await res.json()
           setUser(userData)
           localStorage.setItem("currentUser", JSON.stringify(userData))
-        } else {
+        } else if (res.status === 401) {
+          // Only clear stored session on explicit unauthorized response
           setUser(null)
           localStorage.removeItem("currentUser")
           localStorage.removeItem("sessionToken")
         }
       } catch {
-        setUser(null)
-        localStorage.removeItem("currentUser")
-        localStorage.removeItem("sessionToken")
+        // Keep cached session intact on transient offline/network errors (do not log user out on shaky mobile signal)
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted && authVersionRef.current === requestVersion) {
+          setLoading(false)
+        }
       }
     })()
+
+    return () => {
+      controller.abort()
+    }
   }, [])
 
   const login = async (email: string, password: string) => {
@@ -92,7 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userData = await res.json()
+      authVersionRef.current += 1
       setUser(userData)
+      setLoading(false)
       localStorage.setItem("currentUser", JSON.stringify(userData))
       if (userData.token) {
         localStorage.setItem("sessionToken", userData.token)
@@ -125,7 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userData = await res.json()
+      authVersionRef.current += 1
       setUser(userData)
+      setLoading(false)
       localStorage.setItem("currentUser", JSON.stringify(userData))
       if (userData.token) {
         localStorage.setItem("sessionToken", userData.token)
@@ -141,8 +166,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
+    authVersionRef.current += 1
     fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => { })
     setUser(null)
+    setLoading(false)
     localStorage.removeItem("currentUser")
     localStorage.removeItem("sessionToken")
   }

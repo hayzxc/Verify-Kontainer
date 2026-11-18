@@ -38,12 +38,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const [unreadCount, setUnreadCount] = useState(0)
     const [loading, setLoading] = useState(false)
 
+    const getAuthHeaders = (): Record<string, string> => {
+        const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+        return token ? { Authorization: `Bearer ${token}` } : {}
+    }
+
     const refresh = useCallback(async () => {
         if (!isAuthenticated) return
 
         try {
             setLoading(true)
-            const res = await fetch("/api/notifications", { credentials: "include" })
+            const res = await fetch("/api/notifications", {
+                credentials: "include",
+                headers: getAuthHeaders(),
+            })
             if (res.ok) {
                 const data = await res.json()
                 setNotifications(data.notifications)
@@ -60,7 +68,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         try {
             const res = await fetch(`/api/notifications/${id}`, {
                 method: "PATCH",
-                credentials: "include"
+                credentials: "include",
+                headers: getAuthHeaders(),
             })
             if (res.ok) {
                 setNotifications(prev => {
@@ -78,7 +87,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         try {
             const res = await fetch("/api/notifications/mark-all-read", {
                 method: "POST",
-                credentials: "include"
+                credentials: "include",
+                headers: getAuthHeaders(),
             })
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -93,7 +103,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         try {
             const res = await fetch(`/api/notifications/${id}`, {
                 method: "DELETE",
-                credentials: "include"
+                credentials: "include",
+                headers: getAuthHeaders(),
             })
             if (res.ok) {
                 const notif = notifications.find(n => n.id === id)

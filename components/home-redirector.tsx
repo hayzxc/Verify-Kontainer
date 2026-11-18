@@ -10,13 +10,15 @@ export function HomeRedirector() {
   const router = useRouter()
 
   useEffect(() => {
-    // Fast-path: if there is no cached session or token in localStorage and server had no cookie,
-    // immediately route to /login without waiting for /api/auth/me network roundtrip.
-    const hasLocalSession =
-      typeof window !== "undefined" &&
-      Boolean(localStorage.getItem("sessionToken") || localStorage.getItem("currentUser"))
+    // app/page.tsx already checked server-side cookies and found no valid cookie session.
+    // Only Bearer-token sessions (e.g. Capacitor mobile) can still be valid without a cookie.
+    const hasBearerToken =
+      typeof window !== "undefined" && Boolean(localStorage.getItem("sessionToken"))
 
-    if (!hasLocalSession) {
+    if (!hasBearerToken) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("currentUser")
+      }
       router.replace("/login")
       return
     }

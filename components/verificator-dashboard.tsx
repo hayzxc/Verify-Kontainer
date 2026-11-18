@@ -108,9 +108,14 @@ export function VerificatorDashboard({ user }: { user: User }) {
     loadInspections(newFilters)
   }, [loadInspections])
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+
   const handleLogout = () => {
     logout()
-    router.push("/login")
+    router.replace("/login")
   }
 
   const handleSaveInspection = async (newInspection: InspectionData) => {
@@ -212,7 +217,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
   const handleSelectInspection = async (data: Partial<Inspection> & InspectionData) => {
     if (data.id) {
       try {
-        const res = await fetch(`/api/inspections/${data.id}`, { credentials: "include" })
+        const res = await fetch(`/api/inspections/${data.id}`, { credentials: "include", headers: getAuthHeaders() })
         if (res.ok) {
           const fullData = await res.json()
           setDocumentInspections([fullData])
@@ -239,7 +244,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
   const handleViewSingle = async (inspection: Inspection) => {
     setIsLoadingDoc(true)
     try {
-      const res = await fetch(`/api/inspections/${inspection.id}`, { credentials: "include" })
+      const res = await fetch(`/api/inspections/${inspection.id}`, { credentials: "include", headers: getAuthHeaders() })
       if (res.ok) {
         const fullData = await res.json()
         setDocumentInspections([fullData])
@@ -260,7 +265,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
     setIsLoadingDoc(true)
     try {
       const fetches = Array.from(docSelection).map(async (id) => {
-        const res = await fetch(`/api/inspections/${id}`, { credentials: "include" })
+        const res = await fetch(`/api/inspections/${id}`, { credentials: "include", headers: getAuthHeaders() })
         if (res.ok) return res.json() as Promise<Inspection>
         // Fall back to list data if fetch fails
         return inspections.find((i) => i.id === id) ?? null
@@ -447,7 +452,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
           <Card className="p-2 sm:p-4">
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-[11px] sm:text-sm font-medium text-muted-foreground flex items-center gap-1 sm:gap-2 truncate">
-                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 flex-shrink-0" />
+                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600 shrink-0" />
                 <span className="truncate">Menunggu</span>
               </CardTitle>
             </CardHeader>
@@ -460,7 +465,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
           <Card className="p-2 sm:p-4">
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-[11px] sm:text-sm font-medium text-muted-foreground flex items-center gap-1 sm:gap-2 truncate">
-                <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+                <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600 shrink-0" />
                 <span className="truncate">Disetujui</span>
               </CardTitle>
             </CardHeader>
@@ -473,7 +478,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
           <Card className="p-2 sm:p-4">
             <CardHeader className="p-0 pb-1 sm:pb-2">
               <CardTitle className="text-[11px] sm:text-sm font-medium text-muted-foreground flex items-center gap-1 sm:gap-2 truncate">
-                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 flex-shrink-0" />
+                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 shrink-0" />
                 <span className="truncate">Perlu Perbaikan</span>
               </CardTitle>
             </CardHeader>
@@ -495,7 +500,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
             {editingInspectionId && (
               <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
                   <div>
                     <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-200">
                       Modus Edit & Kirim Ulang Inspeksi #{editingInspectionId}
@@ -593,7 +598,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
                               <div className="flex items-start gap-2.5 flex-1 min-w-0">
                                 {/* Checkbox */}
                                 {canCreateDocument && (
-                                  <div className="mt-1 flex-shrink-0">
+                                  <div className="mt-1 shrink-0">
                                     <Checkbox
                                       id={`sel-${inspection.id}`}
                                       checked={isSelected}

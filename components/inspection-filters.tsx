@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Search, X, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -76,10 +76,18 @@ export function InspectionFilters({
         setSearchTimeout(timeout)
     }, [searchTimeout])
 
-    // Emit filter changes
+    const onFilterChangeRef = useRef(onFilterChange)
+    onFilterChangeRef.current = onFilterChange
+    const isInitialMountRef = useRef(true)
+
+    // Emit filter changes only when filters actually change (skip redundant initial mount & callback identity changes)
     useEffect(() => {
-        onFilterChange(filters)
-    }, [filters, onFilterChange])
+        if (isInitialMountRef.current) {
+            isInitialMountRef.current = false
+            return
+        }
+        onFilterChangeRef.current(filters)
+    }, [filters])
 
     // Cleanup timeout on unmount
     useEffect(() => {

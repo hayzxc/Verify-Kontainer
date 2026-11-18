@@ -781,7 +781,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                                   src={row.src}
                                   alt={row.label}
                                   crossOrigin="anonymous"
-                                  className="h-[192px] w-auto min-w-[108px] max-w-[150px] object-cover border border-black/80 block bg-white shadow-xs cursor-pointer hover:opacity-95 transition-opacity mx-auto"
+                                  className="h-48 w-auto min-w-[108px] max-w-[150px] object-cover border border-black/80 block bg-white shadow-xs cursor-pointer hover:opacity-95 transition-opacity mx-auto"
                                   onClick={() => window.open(row.src, "_blank")}
                                   title="Klik untuk membuka foto ukuran/resolusi penuh"
                                 />

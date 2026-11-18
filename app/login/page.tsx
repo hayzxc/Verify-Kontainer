@@ -146,7 +146,7 @@ function LoginFormContent() {
           {/* Error message */}
           {error && (
             <div className="flex gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
-              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -154,7 +154,7 @@ function LoginFormContent() {
           {/* Success message */}
           {success && (
             <div className="flex gap-2 p-3 bg-green-50 border border-green-200 rounded-md text-sm text-green-700">
-              <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
               <span>{success}</span>
             </div>
           )}
@@ -239,7 +239,7 @@ import { GooeyLoader } from "@/components/ui/gooey-loader"
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-linear-to-br from-primary to-primary/80 flex items-center justify-center px-4 py-8">
       <Suspense
         fallback={
           <Card className="w-full max-w-md p-8 flex flex-col items-center justify-center">
