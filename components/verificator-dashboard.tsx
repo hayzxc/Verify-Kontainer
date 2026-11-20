@@ -791,7 +791,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
         <Dialog open={showDocumentPreview} onOpenChange={setShowDocumentPreview}>
           <DialogContent
             showCloseButton={false}
-            className="flex flex-col gap-0 overflow-hidden p-0 max-w-[96vw] sm:max-w-[920px] w-full max-h-[calc(100dvh_-_env(safe-area-inset-top,0px)_-_env(safe-area-inset-bottom,0px)_-_3.5rem)] sm:max-h-[90dvh]"
+            className="flex flex-col gap-0 overflow-hidden p-0 max-w-[96vw] sm:max-w-[920px] w-full max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-3.5rem)] sm:max-h-[90dvh]"
           >
             <div className="shrink-0 flex items-start justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 border-b border-border bg-background">
               <DialogHeader className="text-left gap-1">
