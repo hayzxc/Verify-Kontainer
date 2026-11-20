@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, type ChangeEvent, type FormEvent } from "react"
+import { useState, useCallback, useRef, useEffect, type ChangeEvent, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -9,10 +9,16 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PhotoUpload } from "./photo-upload"
 import { LocationTracker } from "./location-tracker"
-import { useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { MapPin, Camera, TreePine, Plus, ImagePlus, Calendar } from "lucide-react"
+import { MapPin, Camera, TreePine, Plus, ImagePlus, Calendar, RotateCcw, Trash2 } from "lucide-react"
 import { normalizePhotos, type InspectionData, type LocationData, type PhotoValue } from "@/types/inspection"
+import {
+  getInspectionDraftKey,
+  saveInspectionDraft,
+  loadInspectionDraft,
+  clearDraft,
+  hasMeaningfulInspectionData,
+} from "@/lib/draft-storage"
 
 function buildFormData(initialData?: InspectionData): InspectionData {
   return {
@@ -41,7 +47,7 @@ function buildFormData(initialData?: InspectionData): InspectionData {
 interface InspectionFormProps {
   onSave: (data: InspectionData) => Promise<void> | void
   onSelect: (data: InspectionData) => void
-  initialData?: InspectionData
+  initialData?: InspectionData & { id?: number | string }
 }
 
 export function InspectionForm({ onSave, onSelect, initialData }: InspectionFormProps) {
@@ -70,21 +76,110 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
     return `${year}-${month}-${day}T${hours}:${minutes}`
   }
 
-  const [customDateTime, setCustomDateTime] = useState<string>(() =>
-    initialData?.createdAt
-      ? toLocalDatetimeString(new Date(initialData.createdAt))
-      : toLocalDatetimeString(new Date())
-  )
-  const [formData, setFormData] = useState<InspectionData>(() => buildFormData(initialData))
+  const draftKey = getInspectionDraftKey(user?.id, initialData?.id)
+
+  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(() => {
+    if (initialData) return false
+    if (typeof window !== "undefined") {
+      const saved = loadInspectionDraft(getInspectionDraftKey(user?.id))
+      return Boolean(saved && hasMeaningfulInspectionData(saved.formData))
+    }
+    return false
+  })
+
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(() => {
+    if (initialData) return null
+    if (typeof window !== "undefined") {
+      const saved = loadInspectionDraft(getInspectionDraftKey(user?.id))
+      return saved?.updatedAt || null
+    }
+    return null
+  })
+
+  const [customDateTime, setCustomDateTime] = useState<string>(() => {
+    if (initialData?.createdAt) {
+      return toLocalDatetimeString(new Date(initialData.createdAt))
+    }
+    if (typeof window !== "undefined") {
+      const saved = loadInspectionDraft(getInspectionDraftKey(user?.id))
+      if (saved?.customDateTime) return saved.customDateTime
+    }
+    return toLocalDatetimeString(new Date())
+  })
+
+  const [formData, setFormData] = useState<InspectionData>(() => {
+    if (initialData) return buildFormData(initialData)
+    if (typeof window !== "undefined") {
+      const saved = loadInspectionDraft(getInspectionDraftKey(user?.id))
+      if (saved && hasMeaningfulInspectionData(saved.formData)) {
+        return buildFormData(saved.formData)
+      }
+    }
+    return buildFormData(undefined)
+  })
+
+  const formDataRef = useRef(formData)
+  const customDateTimeRef = useRef(customDateTime)
+  formDataRef.current = formData
+  customDateTimeRef.current = customDateTime
 
   useEffect(() => {
-    setFormData(buildFormData(initialData))
-    if (initialData?.createdAt) {
-      setCustomDateTime(toLocalDatetimeString(new Date(initialData.createdAt)))
-    } else {
-      setCustomDateTime(toLocalDatetimeString(new Date()))
+    if (initialData) {
+      setFormData(buildFormData(initialData))
+      if (initialData.createdAt) {
+        setCustomDateTime(toLocalDatetimeString(new Date(initialData.createdAt)))
+      } else {
+        setCustomDateTime(toLocalDatetimeString(new Date()))
+      }
+      setHasRestoredDraft(false)
+      setDraftRestoredAt(null)
     }
   }, [initialData])
+
+  // Auto-save draft on every change
+  useEffect(() => {
+    if (!initialData && hasMeaningfulInspectionData(formData)) {
+      saveInspectionDraft(draftKey, {
+        formData,
+        customDateTime,
+        updatedAt: new Date().toISOString(),
+      })
+    }
+  }, [formData, customDateTime, draftKey, initialData])
+
+  // Synchronously save before browser unload or tab switch
+  useEffect(() => {
+    if (initialData) return
+    const handleSave = () => {
+      if (hasMeaningfulInspectionData(formDataRef.current)) {
+        saveInspectionDraft(draftKey, {
+          formData: formDataRef.current,
+          customDateTime: customDateTimeRef.current,
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    }
+    window.addEventListener("pagehide", handleSave)
+    window.addEventListener("beforeunload", handleSave)
+    return () => {
+      window.removeEventListener("pagehide", handleSave)
+      window.removeEventListener("beforeunload", handleSave)
+    }
+  }, [draftKey, initialData])
+
+  const handleClearDraft = () => {
+    if (
+      confirm(
+        "Hapus draf inspeksi ini dan mulai dari awal? Semua data dan foto yang belum dikirim akan dibersihkan."
+      )
+    ) {
+      clearDraft(draftKey)
+      setFormData(buildFormData(undefined))
+      setCustomDateTime(toLocalDatetimeString(new Date()))
+      setHasRestoredDraft(false)
+      setDraftRestoredAt(null)
+    }
+  }
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitAction, setSubmitAction] = useState<"submit" | "submit_and_add">("submit")
@@ -161,8 +256,8 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
       onSelect(inspection)
 
       if (submitAction === "submit_and_add") {
-        setFormData((prev) => ({
-          ...prev,
+        const nextData: InspectionData = {
+          ...formData,
           containerNumber: "",
           photos: {
             shipper: null,
@@ -176,8 +271,21 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
           stackingDescription: "",
           slicingDescription: "",
           // Keep shipperName, commodityType, notes, and location
-        }))
+        }
+        setFormData(nextData)
+        setHasRestoredDraft(false)
+        setDraftRestoredAt(null)
+        if (!initialData) {
+          saveInspectionDraft(draftKey, {
+            formData: nextData,
+            customDateTime,
+            updatedAt: new Date().toISOString(),
+          })
+        }
       } else {
+        clearDraft(draftKey)
+        setHasRestoredDraft(false)
+        setDraftRestoredAt(null)
         setFormData({
           shipperName: "",
           commodityType: "",
@@ -199,6 +307,7 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
           stackingDescription: "",
           slicingDescription: "",
         })
+        setCustomDateTime(toLocalDatetimeString(new Date()))
       }
     } catch (error) {
       console.error("Error saving inspection:", error)
@@ -217,7 +326,35 @@ export function InspectionForm({ onSave, onSelect, initialData }: InspectionForm
           <CardTitle>Entri Inspeksi Kontainer</CardTitle>
           <CardDescription>Buat catatan inspeksi baru</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {hasRestoredDraft && (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <RotateCcw className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+                <div>
+                  <p className="font-bold text-amber-900 dark:text-amber-200">
+                    Draf Inspeksi Tersimpan Telah Dipulihkan
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-300 text-[11px] mt-0.5">
+                    Data isian dan foto yang telah Anda ambil sebelum browser ditutup berhasil dipulihkan otomatis
+                    {draftRestoredAt ? ` (${new Date(draftRestoredAt).toLocaleTimeString("id-ID")})` : ""}.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearDraft}
+                  className="h-7 text-xs border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1 text-red-600" />
+                  Hapus Draf & Mulai Baru
+                </Button>
+              </div>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, type ChangeEvent, type FormEvent } from "react"
+import { useState, useCallback, useRef, useEffect, type ChangeEvent, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -10,8 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PhotoUpload } from "./photo-upload"
 import { LocationTracker } from "./location-tracker"
 import { useAuth } from "@/lib/auth-context"
-import { MapPin, Camera, TreePine, Upload, ImagePlus, Calendar } from "lucide-react"
+import { MapPin, Camera, TreePine, Upload, ImagePlus, Calendar, RotateCcw, Trash2 } from "lucide-react"
 import type { BulkInspectionData, LocationData, PhotoValue } from "@/types/inspection"
+import {
+    getBulkInspectionDraftKey,
+    saveBulkInspectionDraft,
+    loadBulkInspectionDraft,
+    clearDraft,
+    hasMeaningfulBulkData,
+} from "@/lib/draft-storage"
 
 interface BulkInspectionFormProps {
     onSave: (data: BulkInspectionData) => Promise<void> | void
@@ -63,8 +70,90 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
         slicingDescription: "",
     })
 
-    const [customDateTime, setCustomDateTime] = useState<string>(() => toLocalDatetimeString(new Date()))
-    const [formData, setFormData] = useState<Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string }>(createInitialFormState)
+    const draftKey = getBulkInspectionDraftKey(user?.id)
+
+    const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(() => {
+        if (typeof window !== "undefined") {
+            const saved = loadBulkInspectionDraft(getBulkInspectionDraftKey(user?.id))
+            return Boolean(saved && hasMeaningfulBulkData(saved.formData))
+        }
+        return false
+    })
+
+    const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(() => {
+        if (typeof window !== "undefined") {
+            const saved = loadBulkInspectionDraft(getBulkInspectionDraftKey(user?.id))
+            return saved?.updatedAt || null
+        }
+        return null
+    })
+
+    const [customDateTime, setCustomDateTime] = useState<string>(() => {
+        if (typeof window !== "undefined") {
+            const saved = loadBulkInspectionDraft(getBulkInspectionDraftKey(user?.id))
+            if (saved?.customDateTime) return saved.customDateTime
+        }
+        return toLocalDatetimeString(new Date())
+    })
+
+    const [formData, setFormData] = useState<Omit<BulkInspectionData, "containerNumbers"> & { containerNumbersText: string }>(() => {
+        if (typeof window !== "undefined") {
+            const saved = loadBulkInspectionDraft(getBulkInspectionDraftKey(user?.id))
+            if (saved && hasMeaningfulBulkData(saved.formData)) {
+                return saved.formData
+            }
+        }
+        return createInitialFormState()
+    })
+
+    const formDataRef = useRef(formData)
+    const customDateTimeRef = useRef(customDateTime)
+    formDataRef.current = formData
+    customDateTimeRef.current = customDateTime
+
+    // Auto-save bulk draft on change
+    useEffect(() => {
+        if (hasMeaningfulBulkData(formData)) {
+            saveBulkInspectionDraft(draftKey, {
+                formData,
+                customDateTime,
+                updatedAt: new Date().toISOString(),
+            })
+        }
+    }, [formData, customDateTime, draftKey])
+
+    // Synchronously save before browser unload / tab switch
+    useEffect(() => {
+        const handleSave = () => {
+            if (hasMeaningfulBulkData(formDataRef.current)) {
+                saveBulkInspectionDraft(draftKey, {
+                    formData: formDataRef.current,
+                    customDateTime: customDateTimeRef.current,
+                    updatedAt: new Date().toISOString(),
+                })
+            }
+        }
+        window.addEventListener("pagehide", handleSave)
+        window.addEventListener("beforeunload", handleSave)
+        return () => {
+            window.removeEventListener("pagehide", handleSave)
+            window.removeEventListener("beforeunload", handleSave)
+        }
+    }, [draftKey])
+
+    const handleClearDraft = () => {
+        if (
+            confirm(
+                "Hapus draf inspeksi massal ini dan mulai dari awal? Semua data dan foto yang belum dikirim akan dibersihkan."
+            )
+        ) {
+            clearDraft(draftKey)
+            setFormData(createInitialFormState())
+            setCustomDateTime(toLocalDatetimeString(new Date()))
+            setHasRestoredDraft(false)
+            setDraftRestoredAt(null)
+        }
+    }
 
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -154,6 +243,9 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
 
         try {
             await onSave(bulkData)
+            clearDraft(draftKey)
+            setHasRestoredDraft(false)
+            setDraftRestoredAt(null)
             setFormData(createInitialFormState())
             setCustomDateTime(toLocalDatetimeString(new Date()))
         } catch (error) {
@@ -172,7 +264,35 @@ export function BulkInspectionForm({ onSave }: BulkInspectionFormProps) {
                     <CardTitle>Entri Inspeksi Massal</CardTitle>
                     <CardDescription>Buat beberapa inspeksi untuk pengirim yang sama</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                    {hasRestoredDraft && (
+                        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                            <div className="flex items-start sm:items-center gap-2.5">
+                                <RotateCcw className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+                                <div>
+                                    <p className="font-bold text-amber-900 dark:text-amber-200">
+                                        Draf Inspeksi Massal Tersimpan Telah Dipulihkan
+                                    </p>
+                                    <p className="text-amber-700 dark:text-amber-300 text-[11px] mt-0.5">
+                                        Data isian dan foto yang telah Anda ambil sebelum browser ditutup berhasil dipulihkan otomatis
+                                        {draftRestoredAt ? ` (${new Date(draftRestoredAt).toLocaleTimeString("id-ID")})` : ""}.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleClearDraft}
+                                    className="h-7 text-xs border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5 mr-1 text-red-600" />
+                                    Hapus Draf & Mulai Baru
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>

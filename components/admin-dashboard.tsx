@@ -63,6 +63,28 @@ export function AdminDashboard({ user }: { user: User }) {
   const [documentSelection, setDocumentSelection] = useState<Inspection[]>([])
   const [showDocumentPreview, setShowDocumentPreview] = useState(false)
   const [isLoadingDoc, setIsLoadingDoc] = useState(false)
+  const [activeTab, setActiveTabState] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("admin_active_tab")
+      if (saved && ["review", "analytics", "form", "history", "users"].includes(saved)) {
+        return saved
+      }
+    }
+    return "review"
+  })
+
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("admin_active_tab", tab)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("admin_active_tab", activeTab)
+    }
+  }, [activeTab])
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [reviewingInspection, setReviewingInspection] = useState<Inspection | null>(null)
   const [adminNotes, setAdminNotes] = useState("")
@@ -513,7 +535,7 @@ export function AdminDashboard({ user }: { user: User }) {
           </Card>
         </div>
 
-        <Tabs defaultValue="review" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto w-full no-scrollbar pb-1">
             <TabsList className="grid w-full min-w-[540px] grid-cols-5 text-xs sm:text-sm">
               <TabsTrigger value="review" className="relative text-xs sm:text-sm px-2">
@@ -899,7 +921,7 @@ export function AdminDashboard({ user }: { user: User }) {
           </DialogContent>
         </Dialog>
 
-        {documentSelection.length > 0 && (
+        {!showDocumentPreview && documentSelection.length > 0 && (
           <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-full shadow-lg flex items-center gap-4 z-50 animate-in slide-in-from-bottom-4">
             <span className="font-medium">{documentSelection.length} inspeksi dipilih</span>
             <div className="h-4 w-px bg-background/20" />

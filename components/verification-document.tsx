@@ -443,55 +443,70 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
   return (
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Top Action Bar with View Toggle & Print/Export Buttons */}
-      <div className="flex flex-col sm:flex-row gap-2 justify-between items-stretch sm:items-center bg-muted/40 p-2 sm:p-2.5 rounded-lg border border-border/60">
-        <div className="flex items-center gap-1 bg-background p-1 rounded-md border shadow-xs text-xs">
+      <div className="flex flex-col sm:flex-row gap-2.5 justify-between items-stretch sm:items-center bg-muted/40 p-2 sm:p-2.5 rounded-lg border border-border/60">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-1 bg-background p-1 rounded-md border shadow-xs text-xs w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setViewMode("mobile")}
             className={cn(
-              "flex-1 sm:flex-initial px-3 py-1.5 rounded font-bold transition-all flex items-center justify-center gap-1.5 text-xs",
+              "px-3 py-1.5 rounded font-bold transition-all flex items-center justify-center gap-1.5 text-xs",
               viewMode === "mobile"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Tampilan Mobile</span>
+            <Smartphone className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Tampilan Mobile</span>
           </button>
           <button
             type="button"
             onClick={() => setViewMode("a4")}
             className={cn(
-              "flex-1 sm:flex-initial px-3 py-1.5 rounded font-bold transition-all flex items-center justify-center gap-1.5 text-xs",
+              "px-3 py-1.5 rounded font-bold transition-all flex items-center justify-center gap-1.5 text-xs",
               viewMode === "a4"
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Format Lembar A4</span>
+            <FileText className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Format Lembar A4</span>
           </button>
         </div>
 
-        <div className="flex gap-2 items-center justify-end flex-wrap">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {isEnriching && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1 mr-1">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Memuat data...
-            </span>
+            <div className="text-[11px] text-muted-foreground flex items-center justify-center sm:justify-start gap-1 py-0.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span>Memuat data...</span>
+            </div>
           )}
-          <Button onClick={handlePrint} variant="outline" size="sm" disabled={isBusy} className="h-8 text-xs font-semibold">
-            <Printer className="w-3.5 h-3.5 mr-1.5" />
-            Cetak
-          </Button>
-          <Button onClick={handlePrintPDF} size="sm" disabled={isBusy} className="h-8 text-xs font-semibold bg-primary text-primary-foreground min-w-[100px]">
-            {isGenerating ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Download className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            {isGenerating ? (generatingProgress || "Membuat PDF...") : "Unduh PDF"}
-          </Button>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              size="sm"
+              disabled={isBusy}
+              className="h-9 sm:h-8 text-xs font-semibold flex items-center justify-center gap-1.5 w-full sm:w-auto"
+            >
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span>Cetak</span>
+            </Button>
+            <Button
+              onClick={handlePrintPDF}
+              size="sm"
+              disabled={isBusy}
+              className="h-9 sm:h-8 text-xs font-semibold bg-primary text-primary-foreground flex items-center justify-center gap-1.5 w-full sm:w-auto min-w-[110px]"
+            >
+              {isGenerating ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin shrink-0" />
+              ) : (
+                <Download className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              )}
+              <span className="truncate">
+                {isGenerating ? (generatingProgress || "Membuat PDF...") : "Unduh PDF"}
+              </span>
+            </Button>
+          </div>
         </div>
       </div>
 

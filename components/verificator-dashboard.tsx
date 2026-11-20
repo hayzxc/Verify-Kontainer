@@ -54,7 +54,28 @@ export function VerificatorDashboard({ user }: { user: User }) {
   })
   const [documentInspections, setDocumentInspections] = useState<Inspection[]>([])
   const [showDocumentPreview, setShowDocumentPreview] = useState(false)
-  const [activeTab, setActiveTab] = useState("form")
+  const [activeTab, setActiveTabState] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("verificator_active_tab")
+      if (saved && ["form", "bulk", "history"].includes(saved)) {
+        return saved
+      }
+    }
+    return "form"
+  })
+
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("verificator_active_tab", tab)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("verificator_active_tab", activeTab)
+    }
+  }, [activeTab])
   const [initialFormData, setInitialFormData] = useState<InspectionData | undefined>(undefined)
   const [lastSavedInspection, setLastSavedInspection] = useState<Inspection | null>(null)
   const [filters, setFilters] = useState<FilterState>({
@@ -735,7 +756,7 @@ export function VerificatorDashboard({ user }: { user: User }) {
         </Tabs>
 
         {/* Floating selection action bar */}
-        {canCreateDocument && selectionCount > 0 && (
+        {!showDocumentPreview && canCreateDocument && selectionCount > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
             <div className="flex items-center gap-3 bg-primary text-primary-foreground rounded-full px-5 py-3 shadow-2xl">
               <span className="text-sm font-medium">
