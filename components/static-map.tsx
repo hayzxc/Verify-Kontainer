@@ -36,8 +36,18 @@ function loadTile(zoom: number, x: number, y: number): Promise<HTMLImageElement>
     return new Promise((resolve, reject) => {
         const img = new Image()
         img.crossOrigin = "anonymous"
-        img.onload = () => resolve(img)
-        img.onerror = () => reject(new Error(`tile ${zoom}/${x}/${y} failed`))
+        const timer = setTimeout(() => {
+            img.src = ""
+            reject(new Error(`tile ${zoom}/${x}/${y} timed out`))
+        }, 5000)
+        img.onload = () => {
+            clearTimeout(timer)
+            resolve(img)
+        }
+        img.onerror = () => {
+            clearTimeout(timer)
+            reject(new Error(`tile ${zoom}/${x}/${y} failed`))
+        }
         img.src = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`
     })
 }
@@ -94,6 +104,83 @@ function drawAttribution(ctx: CanvasRenderingContext2D, width: number, height: n
     ctx.restore()
 }
 
+const mapCache = new Map<string, string>()
+const pendingJobs = new Map<string, Promise<string>>()
+
+function getMapCacheKey(lat: number, lng: number, zoom: number, width: number, height: number): string {
+    return `${lat.toFixed(5)},${lng.toFixed(5)},${zoom},${width},${height}`
+}
+
+export async function getStaticMapDataUrl(
+    lat: number,
+    lng: number,
+    zoom = 15,
+    width = 800,
+    height = 600
+): Promise<string> {
+    const key = getMapCacheKey(lat, lng, zoom, width, height)
+    const cached = mapCache.get(key)
+    if (cached) return cached
+
+    const pending = pendingJobs.get(key)
+    if (pending) return pending
+
+    const promise = (async () => {
+        try {
+            const center = latLngToPixels(lat, lng, zoom)
+            const originX = center.x - width / 2
+            const originY = center.y - height / 2
+
+            const tileMinX = Math.floor(originX / TILE_SIZE)
+            const tileMaxX = Math.floor((originX + width - 1) / TILE_SIZE)
+            const tileMinY = Math.floor(originY / TILE_SIZE)
+            const tileMaxY = Math.floor((originY + height - 1) / TILE_SIZE)
+            const maxTile = Math.pow(2, zoom)
+
+            const canvas = document.createElement("canvas")
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("canvas 2d context unavailable")
+
+            ctx.fillStyle = WATER_COLOR
+            ctx.fillRect(0, 0, width, height)
+
+            const jobs: Promise<void>[] = []
+            for (let tx = tileMinX; tx <= tileMaxX; tx++) {
+                for (let ty = tileMinY; ty <= tileMaxY; ty++) {
+                    if (ty < 0 || ty >= maxTile) continue
+                    // Longitude wraps around the antimeridian
+                    const wrappedX = ((tx % maxTile) + maxTile) % maxTile
+                    const dx = tx * TILE_SIZE - originX
+                    const dy = ty * TILE_SIZE - originY
+                    jobs.push(
+                        loadTile(zoom, wrappedX, ty)
+                            .then((img) => ctx.drawImage(img, dx, dy))
+                            .catch(() => {
+                                /* leave water background for failed tiles */
+                            })
+                    )
+                }
+            }
+            await Promise.all(jobs)
+
+            const scale = width / 400
+            drawPin(ctx, width / 2, height / 2, scale)
+            drawAttribution(ctx, width, height, scale)
+
+            const dataUrl = canvas.toDataURL("image/png")
+            mapCache.set(key, dataUrl)
+            return dataUrl
+        } finally {
+            pendingJobs.delete(key)
+        }
+    })()
+
+    pendingJobs.set(key, promise)
+    return promise
+}
+
 /**
  * Renders a static map as a single <img> whose src is a client-side composited
  * data URL built from OpenStreetMap tiles. No API key required, CORS-safe for
@@ -109,75 +196,40 @@ export function StaticMap({
     style,
     alt = "Location Map",
 }: StaticMapProps) {
-    const [src, setSrc] = useState<string | null>(null)
+    const key = getMapCacheKey(lat, lng, zoom, width, height)
+    const [src, setSrc] = useState<string | null>(() => mapCache.get(key) || null)
     const [failed, setFailed] = useState(false)
 
     useEffect(() => {
         let cancelled = false
 
-        async function buildMap() {
-            try {
-                const center = latLngToPixels(lat, lng, zoom)
-                const originX = center.x - width / 2
-                const originY = center.y - height / 2
-
-                const tileMinX = Math.floor(originX / TILE_SIZE)
-                const tileMaxX = Math.floor((originX + width - 1) / TILE_SIZE)
-                const tileMinY = Math.floor(originY / TILE_SIZE)
-                const tileMaxY = Math.floor((originY + height - 1) / TILE_SIZE)
-                const maxTile = Math.pow(2, zoom)
-
-                const canvas = document.createElement("canvas")
-                canvas.width = width
-                canvas.height = height
-                const ctx = canvas.getContext("2d")
-                if (!ctx) throw new Error("canvas 2d context unavailable")
-
-                ctx.fillStyle = WATER_COLOR
-                ctx.fillRect(0, 0, width, height)
-
-                const jobs: Promise<void>[] = []
-                for (let tx = tileMinX; tx <= tileMaxX; tx++) {
-                    for (let ty = tileMinY; ty <= tileMaxY; ty++) {
-                        if (ty < 0 || ty >= maxTile) continue
-                        // Longitude wraps around the antimeridian
-                        const wrappedX = ((tx % maxTile) + maxTile) % maxTile
-                        const dx = tx * TILE_SIZE - originX
-                        const dy = ty * TILE_SIZE - originY
-                        jobs.push(
-                            loadTile(zoom, wrappedX, ty)
-                                .then((img) => ctx.drawImage(img, dx, dy))
-                                .catch(() => {
-                                    /* leave water background for failed tiles */
-                                })
-                        )
-                    }
-                }
-                await Promise.all(jobs)
-                if (cancelled) return
-
-                const scale = width / 400
-                drawPin(ctx, width / 2, height / 2, scale)
-                drawAttribution(ctx, width, height, scale)
-
-                setSrc(canvas.toDataURL("image/png"))
-            } catch (error) {
-                console.error("[StaticMap] Failed to build map:", error)
-                if (!cancelled) setFailed(true)
-            }
+        if (mapCache.has(key)) {
+            setSrc(mapCache.get(key) || null)
+            return
         }
 
-        buildMap()
+        getStaticMapDataUrl(lat, lng, zoom, width, height)
+            .then((dataUrl) => {
+                if (!cancelled) {
+                    setSrc(dataUrl)
+                }
+            })
+            .catch((error) => {
+                console.error("[StaticMap] Failed to build map:", error)
+                if (!cancelled) setFailed(true)
+            })
+
         return () => {
             cancelled = true
         }
-    }, [lat, lng, zoom, width, height])
+    }, [key, lat, lng, zoom, width, height])
 
     if (failed) {
         return (
             <div
+                data-static-map="failed"
                 className={className}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", ...style }}
+                style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center" }}
             >
                 <span style={{ fontSize: 11, color: "#6b7280", fontStyle: "italic" }}>
                     Peta tidak tersedia ({lat.toFixed(6)}, {lng.toFixed(6)})
@@ -189,14 +241,25 @@ export function StaticMap({
     if (!src) {
         return (
             <div
+                data-static-map="loading"
                 className={className}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", ...style }}
+                style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center" }}
             >
                 <span style={{ fontSize: 11, color: "#6b7280" }}>Memuat peta...</span>
             </div>
         )
     }
 
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} className={className} style={style} crossOrigin="anonymous" draggable={false} />
+    return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+            data-static-map="ready"
+            src={src}
+            alt={alt}
+            className={className}
+            style={style}
+            crossOrigin="anonymous"
+            draggable={false}
+        />
+    )
 }

@@ -140,18 +140,41 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         throw new Error("Elemen dokumen untuk ekspor PDF tidak ditemukan.")
       }
 
-      // 1. Wait for all images in export container to load
+      // 1. Wait for all static maps to finish generating
+      setGeneratingProgress("Menyiapkan peta lokasi...")
+      const mapWaitStart = Date.now()
+      while (
+        container.querySelector('[data-static-map="loading"]') &&
+        Date.now() - mapWaitStart < 8000
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
+
+      // 2. Wait for all images in export container to load & decode
       setGeneratingProgress("Memuat foto...")
       const images = Array.from(container.querySelectorAll("img"))
       await Promise.all(
         images.map((img) => {
-          if (img.complete && img.naturalWidth > 0) return Promise.resolve(true)
+          if (img.complete && img.naturalWidth > 0) {
+            if ("decode" in img) {
+              return (img as HTMLImageElement).decode().catch(() => true)
+            }
+            return Promise.resolve(true)
+          }
           return new Promise((resolve) => {
-            const timer = setTimeout(() => resolve(true), 4000)
-            img.onload = () => {
+            const timer = setTimeout(() => resolve(true), 12000)
+            const finish = async () => {
               clearTimeout(timer)
+              if ("decode" in img) {
+                try {
+                  await (img as HTMLImageElement).decode()
+                } catch {
+                  // ignore decode failure
+                }
+              }
               resolve(true)
             }
+            img.onload = finish
             img.onerror = () => {
               clearTimeout(timer)
               resolve(true)
@@ -166,7 +189,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
 
       await new Promise((resolve) => setTimeout(resolve, 150))
 
-      // 2. Dynamically import html2canvas-pro and jsPDF
+      // 3. Dynamically import html2canvas-pro and jsPDF
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas-pro"),
         import("jspdf"),
@@ -200,16 +223,30 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
         }
 
         const pageEl = pageElements[i]
+        const pageElHeight = pageEl.offsetHeight || 1123
+
         const canvas = await html2canvas(pageEl, {
           scale: 2,
           useCORS: true,
           allowTaint: false,
           backgroundColor: "#ffffff",
           logging: false,
-          x: 0,
-          y: 0,
+          width: 794,
+          height: pageElHeight,
+          windowWidth: 794,
+          windowHeight: Math.max(1123, pageElHeight),
           scrollX: 0,
           scrollY: 0,
+          onclone: (clonedDoc) => {
+            const exportContainer = clonedDoc.getElementById("pdf-export-container")
+            if (exportContainer) {
+              exportContainer.style.opacity = "1"
+              exportContainer.style.zIndex = "1"
+              exportContainer.style.position = "static"
+              exportContainer.style.left = "0px"
+              exportContainer.style.top = "0px"
+            }
+          },
         })
 
         const imgData = canvas.toDataURL("image/jpeg", 0.96)
@@ -309,7 +346,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
     })
   }
 
-  const getPhotoUrls = (val: any): string[] => {
+  const getPhotoUrls = (val: unknown): string[] => {
     if (!val) return []
     if (Array.isArray(val)) {
       return val.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
@@ -725,16 +762,21 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                   </div>
 
                   {/* 4-ROW A4 TABLE */}
-                  <table className="w-full text-xs border-collapse table-fixed border-2 border-black">
+                  <table className="w-full text-xs border-collapse table-fixed border-2 border-black" style={{ width: "100%", tableLayout: "fixed" }}>
+                    <colgroup>
+                      <col style={{ width: "34%" }} />
+                      <col style={{ width: "36%" }} />
+                      <col style={{ width: "30%" }} />
+                    </colgroup>
                     <thead>
                       <tr className="bg-gray-300 text-black border-b-2 border-black">
-                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[34%]" style={{ width: "34%" }}>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[34%]" style={{ width: "34%", boxSizing: "border-box" }}>
                           Photos
                         </th>
-                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[36%]" style={{ width: "36%" }}>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[36%]" style={{ width: "36%", boxSizing: "border-box" }}>
                           Information
                         </th>
-                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[30%]" style={{ width: "30%" }}>
+                        <th className="border-2 border-black p-1.5 text-center font-extrabold text-xs w-[30%]" style={{ width: "30%", boxSizing: "border-box" }}>
                           Location
                         </th>
                       </tr>
@@ -742,10 +784,10 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                     <tbody>
                       {page.rows.length === 0 ? (
                         <tr className="border-b-2 border-black">
-                          <td className="border-2 border-black p-4 text-center align-middle text-gray-400 italic">
+                          <td className="border-2 border-black p-4 text-center align-middle text-gray-400 italic" style={{ width: "34%", boxSizing: "border-box" }}>
                             Tidak Ada Bukti Foto
                           </td>
-                          <td className="border-2 border-black p-3 align-top">
+                          <td className="border-2 border-black p-3 align-top" style={{ width: "36%", boxSizing: "border-box" }}>
                             <div className="flex items-center justify-between mb-1">
                               <p className="font-bold text-xs text-black">{page.inspection.shipperName}</p>
                               <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase rounded ${
@@ -759,7 +801,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             <p className="text-[11px] text-gray-700">No. Container: {page.inspection.containerNumber || "-"}</p>
                             <p className="text-[11px] text-gray-700">Komoditi: {page.inspection.commodityType}</p>
                           </td>
-                          <td className="border-2 border-black p-3 align-top text-center">
+                          <td className="border-2 border-black p-3 align-top text-center" style={{ width: "30%", boxSizing: "border-box" }}>
                             {lat && lng ? (
                               <div>
                                 <p className="font-bold text-[11px]">{lat.toFixed(6)}, {lng.toFixed(6)}</p>
@@ -774,13 +816,14 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                         page.rows.map((row, rIdx) => (
                           <tr key={`a4-row-${pageIdx}-${rIdx}`} className="border-b-2 border-black page-break-inside-avoid photo-row">
                             {/* PHOTOS COLUMN (LEFT - Portrait Rectangular Layout) */}
-                            <td className="border-2 border-black p-1.5 align-middle text-center bg-white">
+                            <td className="border-2 border-black p-1.5 align-middle text-center bg-white" style={{ width: "34%", boxSizing: "border-box" }}>
                               <div className="flex flex-col items-center justify-center w-full">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={row.src}
                                   alt={row.label}
                                   crossOrigin="anonymous"
+                                  loading="eager"
                                   className="h-48 w-auto min-w-[108px] max-w-[150px] object-cover border border-black/80 block bg-white shadow-xs cursor-pointer hover:opacity-95 transition-opacity mx-auto"
                                   onClick={() => window.open(row.src, "_blank")}
                                   title="Klik untuk membuka foto ukuran/resolusi penuh"
@@ -792,7 +835,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             </td>
 
                             {/* INFORMATION COLUMN (MIDDLE) */}
-                            <td className="border-2 border-black p-2 align-top" style={{ wordBreak: "break-word" }}>
+                            <td className="border-2 border-black p-2 align-top" style={{ width: "36%", boxSizing: "border-box", wordBreak: "break-word" }}>
                               <p className="font-bold text-[11px] text-black leading-snug whitespace-pre-wrap">
                                 {row.info}
                               </p>
@@ -827,7 +870,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                             </td>
 
                             {/* LOCATION COLUMN (RIGHT WITH MAP IMAGE) */}
-                            <td className="border-2 border-black p-1.5 align-top text-center bg-gray-50/50" style={{ wordBreak: "break-word" }}>
+                            <td className="border-2 border-black p-1.5 align-top text-center bg-gray-50/50" style={{ width: "30%", boxSizing: "border-box", wordBreak: "break-word" }}>
                               {lat && lng ? (
                                 <div className="space-y-1">
                                   <StaticMap
@@ -875,12 +918,14 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
       {/* ========================================================================= */}
       <div
         ref={exportContainerRef}
+        id="pdf-export-container"
         style={{
           position: "fixed",
           top: 0,
-          left: "-9999px",
+          left: 0,
           width: "794px",
           zIndex: -9999,
+          opacity: 0,
           pointerEvents: "none",
           backgroundColor: "#ffffff",
           color: "#000000",
@@ -906,14 +951,14 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               }}
             >
               {/* Header */}
-              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "4px", marginBottom: "6px" }}>
+              <div style={{ textAlign: "center", borderBottom: "2px solid #000000", paddingBottom: "4px", marginBottom: "6px", boxSizing: "border-box" }}>
                 <h1 style={{ fontSize: "17px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", margin: 0, color: "#000000" }}>
                   Dokumen Verifikasi
                 </h1>
               </div>
 
               {/* Container Banner */}
-              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "6px 12px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ backgroundColor: "#111827", color: "#ffffff", padding: "6px 12px", border: "2px solid #000000", borderBottom: "none", display: "flex", justifyContent: "space-between", alignItems: "center", boxSizing: "border-box" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 700, fontSize: "12px", color: "#facc15", fontFamily: "'Courier New', Courier, monospace", letterSpacing: "0.5px", textTransform: "uppercase" }}>
@@ -944,25 +989,30 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               </div>
 
               {/* Table */}
-              <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000" }}>
+              <table style={{ width: "100%", fontSize: "10px", borderCollapse: "collapse", tableLayout: "fixed", border: "2px solid #000000", boxSizing: "border-box" }}>
+                <colgroup>
+                  <col style={{ width: "34%" }} />
+                  <col style={{ width: "36%" }} />
+                  <col style={{ width: "30%" }} />
+                </colgroup>
                 <thead>
                   <tr style={{ backgroundColor: "#d1d5db", color: "#000000", borderBottom: "2px solid #000000" }}>
-                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "34%" }}>Photos</th>
-                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "36%" }}>Information</th>
-                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "30%" }}>Location</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "34%", boxSizing: "border-box" }}>Photos</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "36%", boxSizing: "border-box" }}>Information</th>
+                    <th style={{ border: "2px solid #000000", padding: "4px 6px", textAlign: "center", fontWeight: 700, fontSize: "11px", width: "30%", boxSizing: "border-box" }}>Location</th>
                   </tr>
                 </thead>
                 <tbody>
                   {page.rows.length === 0 ? (
                     <tr style={{ borderBottom: "2px solid #000000" }}>
-                      <td style={{ border: "2px solid #000000", padding: "16px", textAlign: "center", color: "#9ca3af", fontStyle: "italic" }}>Tidak Ada Bukti Foto</td>
-                      <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top" }}>
+                      <td style={{ border: "2px solid #000000", padding: "16px", textAlign: "center", color: "#9ca3af", fontStyle: "italic", width: "34%", boxSizing: "border-box" }}>Tidak Ada Bukti Foto</td>
+                      <td style={{ border: "2px solid #000000", padding: "8px", verticalAlign: "top", width: "36%", boxSizing: "border-box" }}>
                         <p style={{ fontWeight: 700, fontSize: "11px", margin: "0 0 4px 0", color: "#000000" }}>{page.inspection.shipperName}</p>
                         <p style={{ margin: "0 0 3px 0", color: "#374151" }}>Tahap: {page.inspection.verificationStage === "akhir" ? "Verifikasi Akhir" : "Verifikasi Awal"}</p>
                         <p style={{ margin: "0 0 3px 0", color: "#374151" }}>No. Container: {page.inspection.containerNumber || "-"}</p>
                         <p style={{ margin: "0 0 3px 0", color: "#374151" }}>Komoditi: {page.inspection.commodityType}</p>
                       </td>
-                      <td style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", verticalAlign: "top" }}>
+                      <td style={{ border: "2px solid #000000", padding: "8px", textAlign: "center", verticalAlign: "top", width: "30%", boxSizing: "border-box" }}>
                         <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Lokasi Tidak Tersedia</span>
                       </td>
                     </tr>
@@ -973,12 +1023,13 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                       return (
                         <tr key={`prow-${rIdx}`} style={{ borderBottom: "2px solid #000000" }}>
                           {/* Photo Cell (Portrait Rectangular Layout fitted for 4 rows per A4 page) */}
-                          <td style={{ border: "2px solid #000000", padding: "6px 8px", verticalAlign: "middle", textAlign: "center", backgroundColor: "#ffffff" }}>
+                          <td style={{ border: "2px solid #000000", padding: "6px 8px", verticalAlign: "middle", textAlign: "center", backgroundColor: "#ffffff", width: "34%", boxSizing: "border-box" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={row.src}
                               alt={row.label}
                               crossOrigin="anonymous"
+                              loading="eager"
                               style={{ height: "192px", width: "auto", minWidth: "108px", maxWidth: "150px", objectFit: "cover", display: "block", margin: "0 auto", border: "1px solid #1f2937", backgroundColor: "#ffffff" }}
                             />
                             <span style={{ display: "block", fontSize: "9px", fontWeight: 700, color: "#000000", textTransform: "uppercase", marginTop: "4px", lineHeight: "1.2" }}>
@@ -987,7 +1038,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                           </td>
 
                           {/* Information Cell */}
-                          <td style={{ border: "2px solid #000000", padding: "6px 8px", verticalAlign: "top", wordBreak: "break-word" }}>
+                          <td style={{ border: "2px solid #000000", padding: "6px 8px", verticalAlign: "top", wordBreak: "break-word", width: "36%", boxSizing: "border-box" }}>
                             <p style={{ fontWeight: 700, fontSize: "10px", color: "#000000", lineHeight: 1.35, margin: "0 0 4px 0", whiteSpace: "pre-wrap" }}>
                               {row.info}
                             </p>
@@ -1018,7 +1069,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
                           </td>
 
                           {/* Location Cell */}
-                          <td style={{ border: "2px solid #000000", padding: "6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word" }}>
+                          <td style={{ border: "2px solid #000000", padding: "6px", verticalAlign: "top", textAlign: "center", backgroundColor: "#f9fafb", wordBreak: "break-word", width: "30%", boxSizing: "border-box" }}>
                             {lat && lng ? (
                               <div>
                                 <StaticMap
@@ -1053,7 +1104,7 @@ export function VerificationDocument({ inspections }: { inspections: Inspection[
               </table>
 
               {/* Footer */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "5px", marginTop: "6px", fontSize: "10px", color: "#4b5563", fontWeight: 500 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #000000", paddingTop: "5px", marginTop: "6px", fontSize: "10px", color: "#4b5563", fontWeight: 500, boxSizing: "border-box" }}>
                 <span>Dokumen Resmi Hasil Verifikasi · Generated: {new Date().toLocaleString("id-ID")}</span>
                 <span style={{ fontWeight: 700, color: "#000000" }}>Halaman {pageIdx + 1} dari {totalExportPages}</span>
               </div>
