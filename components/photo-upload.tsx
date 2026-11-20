@@ -7,6 +7,7 @@ import { X, Camera, CheckCircle2, CloudUpload, CloudOff, Loader2, Plus, ImageIco
 import { compressImageBase64, getBase64ByteSize, formatFileSize } from "@/lib/image-compression"
 import { isNativePlatform, captureNativePhoto } from "@/lib/capacitor-bridge"
 import { useAuth } from "@/lib/auth-context"
+import { CameraCapture } from "@/components/CameraCapture"
 import type { PhotoValue } from "@/types/inspection"
 import { normalizePhotos } from "@/types/inspection"
 
@@ -67,10 +68,8 @@ export function PhotoUpload({
 
   const [entries, setEntries] = useState<PhotoEntry[]>(() => buildEntriesFromPhoto(photo))
   const entriesRef = useRef<PhotoEntry[]>(entries)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [isCamera, setIsCamera] = useState(false)
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [isCompressing, setIsCompressing] = useState(false)
 
   // Sync external photo prop → internal entries without discarding in-flight uploads on re-renders
@@ -207,73 +206,44 @@ export function PhotoUpload({
     }
   }
 
-  // ─── Web Camera ───────────────────────────────────────────────
-  const startCamera = async () => {
+  const handleOpenCamera = async (): Promise<void> => {
     if (isNativePlatform()) {
       await captureNative()
       return
     }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      })
-      setIsCamera(true)
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-        }
-      }, 100)
-    } catch (err) {
-      console.error("Error accessing camera:", err)
-      alert("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan pada peramban Anda.")
-    }
+    setIsCameraOpen(true)
   }
 
-  const capturePhoto = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext("2d")
-      if (context) {
-        setIsCompressing(true)
-        const video = videoRef.current
-        let width = video.videoWidth || 1920
-        let height = video.videoHeight || 1080
-        const maxDimension = 1280
+  const handleCameraCapture = (file: File): void => {
+    if (entriesRef.current.length >= maxPhotos) {
+      alert(`Maksimal ${String(maxPhotos)} foto telah tercapai.`)
+      return
+    }
 
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round((height * maxDimension) / width)
-            width = maxDimension
-          } else {
-            width = Math.round((width * maxDimension) / height)
-            height = maxDimension
+    void (async (): Promise<void> => {
+      setIsCompressing(true)
+      try {
+        const base64Data = await new Promise<string>((resolve, reject): void => {
+          const reader = new FileReader()
+          reader.onload = (): void => {
+            if (typeof reader.result === "string") {
+              resolve(reader.result)
+            } else {
+              reject(new Error("Gagal membaca file foto"))
+            }
           }
-        }
-
-        canvasRef.current.width = width
-        canvasRef.current.height = height
-        context.imageSmoothingEnabled = true
-        context.imageSmoothingQuality = "high"
-        context.drawImage(video, 0, 0, width, height)
-        const compressedData = canvasRef.current.toDataURL("image/jpeg", 0.75)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        const compressed = await compressImageBase64(base64Data, 1280, 0.75)
+        await addPhoto(compressed)
+      } catch (err: unknown) {
+        console.error("[PhotoUpload] Error processing camera photo:", err)
+        alert("Gagal memproses foto dari kamera.")
+      } finally {
         setIsCompressing(false)
-
-        await addPhoto(compressedData)
-        // Don't stop camera → user can take another photo immediately
       }
-    }
-  }
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach((track) => track.stop())
-    }
-    setIsCamera(false)
+    })()
   }
 
   // ─── Gallery File Selection ────────────────────────────────────
@@ -453,28 +423,6 @@ export function PhotoUpload({
         </div>
       )}
 
-      {/* Camera View */}
-      {isCamera && (
-        <div className="space-y-2 mb-2">
-          <video ref={videoRef} autoPlay playsInline className="w-full h-36 sm:h-48 bg-black rounded-lg object-cover" />
-          <canvas ref={canvasRef} className="hidden" />
-          <div className="flex gap-2">
-            <Button type="button" onClick={capturePhoto} variant="default" className="flex-1 text-xs sm:text-sm h-10">
-              <Camera className="w-4 h-4 mr-1.5" />
-              Jepret Foto
-            </Button>
-            <Button type="button" onClick={stopCamera} variant="outline" className="flex-1 text-xs sm:text-sm h-10 bg-transparent">
-              Selesai
-            </Button>
-          </div>
-          {entries.length > 0 && (
-            <p className="text-[10px] text-center text-muted-foreground">
-              Foto diambil: {entries.length}/{maxPhotos} • Tekan &quot;Jepret Foto&quot; untuk menambah lagi
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Hidden file input for gallery upload (only if canUseGallery) */}
       {canUseGallery && (
         <input
@@ -488,71 +436,81 @@ export function PhotoUpload({
       )}
 
       {/* Action Buttons */}
-      {!isCamera && (
-        <div className="space-y-2">
-          {entries.length === 0 && (
-            <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-5 text-center bg-muted/20">
-              <Camera className="w-6 h-6 sm:w-7 sm:h-7 mx-auto text-muted-foreground mb-1.5" />
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                {canUseGallery
-                  ? "Ambil foto via kamera atau unggah dari galeri"
-                  : "Ambil foto bukti langsung via kamera"}
-              </p>
-              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                Maksimal {maxPhotos} foto per kategori
-              </p>
-            </div>
-          )}
-          {canAddMore && (
-            canUseGallery ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  onClick={startCamera}
-                  variant={entries.length === 0 ? "default" : "outline"}
-                  className="w-full text-xs sm:text-sm h-10"
-                >
-                  <Camera className="w-4 h-4 mr-1.5" />
-                  {entries.length === 0 ? "Buka Kamera" : `Kamera (${entries.length}/${maxPhotos})`}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  className="w-full text-xs sm:text-sm h-10 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                >
-                  <ImageIcon className="w-4 h-4 mr-1.5 text-blue-500" />
-                  Pilih Galeri
-                </Button>
-              </div>
-            ) : (
+      <div className="space-y-2">
+        {entries.length === 0 && (
+          <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-5 text-center bg-muted/20">
+            <Camera className="w-6 h-6 sm:w-7 sm:h-7 mx-auto text-muted-foreground mb-1.5" />
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              {canUseGallery
+                ? "Ambil foto via kamera atau unggah dari galeri"
+                : "Ambil foto bukti langsung via kamera"}
+            </p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+              Maksimal {maxPhotos} foto per kategori
+            </p>
+          </div>
+        )}
+        {canAddMore && (
+          canUseGallery ? (
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
-                onClick={startCamera}
+                onClick={(): void => {
+                  void handleOpenCamera()
+                }}
                 variant={entries.length === 0 ? "default" : "outline"}
-                className="w-full text-xs sm:text-sm h-10"
+                className="w-full text-xs sm:text-sm h-10 cursor-pointer"
               >
-                {entries.length === 0 ? (
-                  <>
-                    <Camera className="w-4 h-4 mr-1.5" />
-                    Buka Kamera
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-1.5" />
-                    Tambah Foto ({entries.length}/{maxPhotos})
-                  </>
-                )}
+                <Camera className="w-4 h-4 mr-1.5" />
+                {entries.length === 0 ? "Buka Kamera" : `Kamera (${entries.length}/${maxPhotos})`}
               </Button>
-            )
-          )}
-          {!canAddMore && (
-            <p className="text-[10px] text-center text-amber-600 dark:text-amber-400">
-              Maksimal {maxPhotos} foto tercapai
-            </p>
-          )}
-        </div>
-      )}
+              <Button
+                type="button"
+                onClick={(): void => fileInputRef.current?.click()}
+                variant="outline"
+                className="w-full text-xs sm:text-sm h-10 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer"
+              >
+                <ImageIcon className="w-4 h-4 mr-1.5 text-blue-500" />
+                Pilih Galeri
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              onClick={(): void => {
+                void handleOpenCamera()
+              }}
+              variant={entries.length === 0 ? "default" : "outline"}
+              className="w-full text-xs sm:text-sm h-10 cursor-pointer"
+            >
+              {entries.length === 0 ? (
+                <>
+                  <Camera className="w-4 h-4 mr-1.5" />
+                  Buka Kamera
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Tambah Foto ({entries.length}/{maxPhotos})
+                </>
+              )}
+            </Button>
+          )
+        )}
+        {!canAddMore && (
+          <p className="text-[10px] text-center text-amber-600 dark:text-amber-400">
+            Maksimal {maxPhotos} foto tercapai
+          </p>
+        )}
+      </div>
+
+      <CameraCapture
+        isOpen={isCameraOpen}
+        onClose={(): void => {
+          setIsCameraOpen(false)
+        }}
+        onCapture={handleCameraCapture}
+      />
     </Card>
   )
 }
